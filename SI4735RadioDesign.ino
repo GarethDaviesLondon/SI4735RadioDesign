@@ -1,81 +1,14 @@
-//#define DEBUG
+#define DEBUG
 
-/*
-
-  Test and validation of the SI4735 Arduino Library with SSB support.
-  This example shows you how to setup the radio on SW/SSB by using the Si4735 Arduino Library.
-  It uses the Serial Monitor to get the commands and show the information.
-
-  This sketch has been successfully tested on:
-  1) Tested on Arduino Pro Mini 3.3V;
-  2) UNO (by using a voltage converter);
-  3) Arduino Yún;
-  4) Arduino Mega (by using a voltage converter);
-  5) Arduino DUE; and
-  6) ESP32 (LOLIN32 WEMOS)
-
-  The main advantages of using this sketch are:
-  1) It is a easy way to check if your circuit is working;
-  2) You do not need to connect any display device to make your radio works;
-  3) You do not need connect any push buttons or encoders to change volume and frequency;
-  4) The Arduino IDE is all you need to control the radio.
-
-  The table below shows the Si4735 and Arduino Pro Mini pin connections
-
-    | Si4735 pin      |  Arduino Pin  |
-    | ----------------| ------------  |
-    | RESET (pin 15)  |     12        |
-    | SDIO (pin 18)   |     A4        |
-    | SCLK (pin 17)   |     A5        |
-
-
-  This sketch will download a SSB patch to your SI4735 device (patch_content.h). It will take about 15KB of the Arduino memory.
-
-  In this context, a patch is a piece of software used to change the behavior of the SI4735 device.
-  There is little information available about patching the SI4735. The following information is the understanding of the author of
-  this project and it is not necessarily correct. A patch is executed internally (run by internal MCU) of the device.
-  Usually, patches are used to fixes bugs or add improvements and new features of the firmware installed in the internal ROM of the device.
-  Patches to the SI4735 are distributed in binary form and have to be transferred to the internal RAM of the device by
-  the host MCU (in this case Arduino). Since the RAM is volatile memory, the patch stored into the device gets lost when you turn off the system.
-  Consequently, the content of the patch has to be transferred again to the device each time after turn on the system or reset the device.
-
-  ATTENTION: The author of this project does not guarantee that procedures shown here will work in your development environment.
-  Given this, it is at your own risk to continue with the procedures suggested here.
-  This library works with the I2C communication protocol and it is designed to apply a SSB extension PATCH to CI SI4735-D60.
-  Once again, the author disclaims any liability for any damage this procedure may cause to your SI4735 or other devices that you are using.
-
-  Features of this sketch:
-
-  1) Only SSB (LSB and USB);
-  2) Audio bandwidth filter 0.5, 1, 1.2, 2.2, 3 and 4Khz;
-  3) Eight ham radio bands pre configured;
-  4) BFO Control; and
-  5) Frequency step switch (1, 5 and 10KHz);
-
-  Main Parts:
-  Encoder with push button;
-  Seven bush buttons;
-  OLED Display with I2C protocol;
-  Arduino Pro mini 3.3V;
-
-  Prototype documentation : https://pu2clr.github.io/SI4735/
-  PU2CLR Si47XX API documentation: https://pu2clr.github.io/SI4735/extras/apidoc/html/
-
-  By Ricardo Lima Caratti, Nov 2019.
-*/
-
-#include <SI4735.h>
+#include "GWDSI4735.h"
 #include "Rotary.h"
-// Test it with patch_init.h or patch_full.h. Do not try load both.
-#include "patch_init.h" // SSB patch for whole SSBRX initialization string
-// #include "patch_full.h"    // SSB patch for whole SSBRX full download
 #include <Wire.h>             //Needed by the SPI library
 #include <Adafruit_GFX.h>     //Used for the OLED display, called by the SSD1306 Library
 #include <Adafruit_SSD1306.h> //This is the OLED driver library
 
 
 
-const uint16_t size_content = sizeof ssb_patch_content; // see ssb_patch_content in patch_full.h or patch_init.h
+//const uint16_t size_content = sizeof ssb_patch_content; // see ssb_patch_content in patch_full.h or patch_init.h
 
 #define AM_FUNCTION 1
 #define RESET_PIN 12
@@ -110,15 +43,16 @@ typedef struct
 
 Band band[] = {
   {1800, 2000, 1933, 1, LSB},
-  {3500, 4000, 3790, 1, LSB},
+  {3500, 4000, 3550, 1, LSB},
   {7000, 7500, 7010, 1, LSB},
+  {7200, 8000, 7200, 1, LSB},
   {10000, 10500, 10050, 1, USB},
   {14000, 14300, 14015, 1, USB},
   {18000, 18300, 18100, 1, USB},
-  {21000, 21400, 21100, 1, USB},
+  {21000, 21400, 21050, 1, USB},
   {24890, 25000, 24940, 1, USB},
   {27000, 27700, 27300, 1, USB},
-  {28000, 28500, 28400, 1, USB}
+  {28000, 28500, 28050, 1, USB}
 };
 
 const int lastBand = (sizeof band / sizeof(Band)) - 1;
@@ -129,7 +63,7 @@ uint8_t currentAGCAtt = 0;
 uint8_t rssi = 0;
 
 
-SI4735 si4735;
+GWDSI4735 si4735;
 
 //ROTARY ENCODER parameters
 #define ROTARYLEFT 2  //Pin the left turn on the encoder is connected to Arduino
@@ -217,7 +151,8 @@ void setup()
   et1 = millis();
 #endif
 
-  loadSSB();
+ // loadSSB();
+  si4735.downloadPatchFromEeprom(0x50);
 
 #ifdef DEBUG
   et2 = millis();
@@ -431,7 +366,7 @@ void doSw4ButtonPress()
 }
 
 
-
+/*
 void loadSSB()
 {
   si4735.queryLibraryId(); // Is it really necessary here? I will check it.
@@ -447,7 +382,7 @@ void loadSSB()
   // DSP_AFCDIS - DSP AFC Disable or enable; 0=SYNC MODE, AFC enable; 1=SSB MODE, AFC disable.
   si4735.setSSBConfig(bandwidthIdx, 1, 0, 1, 0, 1);
 }
-
+*/
 
 void displayFrequency()
 {
