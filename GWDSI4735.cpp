@@ -4,7 +4,11 @@
 
 
 /*ID CHECK */
-const uint8_t content_id[] = "SI4735-D60-init-JUNE202-V1";
+const uint8_t content_id[] = "SI4735-D60-init-JUNE2020-V1";
+#ifdef DEBUG
+const uint8_t content_id_test[] = "SI4735-D60-init-JUNE2020-V2";
+#endif
+
 const uint16_t size_id = sizeof content_id;
 
 
@@ -17,12 +21,20 @@ int GWDSI4735::uploadPatchToEeprom(void)
 {
   //Write Header
   eepromWriteHeader();
-  if (!checkHeaderOK())
+  if (!checkHeaderOK(content_id))
   {
     #ifdef DEBUG
-      Serial.println("Error has been Detected in Header Information");
+      Serial.println("[FAIL] Unexepected Error has been Detected in Header Information");
     #endif
   }
+  #ifdef DEBUG
+  if (!checkHeaderOK(content_id_test))
+  {
+      Serial.println("[PASS] Deliberate Error was Detected in Header Information");
+  } else {
+      Serial.println("[FAIL] Deliberate Error was NOT Detected in Header Information"); 
+  }
+  #endif
 }
 
 void GWDSI4735::eepromWriteHeader(void)
@@ -71,7 +83,7 @@ void GWDSI4735::eepromWrite(uint8_t i2c_address, uint16_t offset, uint8_t data)
 }
 #endif
 
-bool GWDSI4735::checkHeaderOK(void)
+bool GWDSI4735::checkHeaderOK(const uint8_t  * pData)
 {
     uint8_t read_id[size_id];;
     eepromReadBlock(EEPROM_I2C_ADDR,0,read_id,size_id); 
@@ -84,10 +96,18 @@ bool GWDSI4735::checkHeaderOK(void)
       Serial.print(" ");
     }
     Serial.println();
+    Serial.print("EEPROM COMPARE ID Chek = ");
+    for (int a = 0; a< size_id; a++)
+    {
+      Serial.print("0x");
+      Serial.print(pData[a],HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
   #endif
 
   for (int a=0;a<size_id;a++){
-    if (read_id[a] != content_id[a]) return false;
+    if (read_id[a] != pData[a]) return false;
   }
   return true;
 }

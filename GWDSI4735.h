@@ -17,7 +17,7 @@ class GWDSI4735 : public SI4735 {
   #ifdef UPLOADPATCH
   int GWDSI4735::uploadPatchToEeprom(void);
   #endif
-  bool GWDSI4735::checkHeaderOK(void);
+  bool GWDSI4735::checkHeaderOK(const uint8_t  * pData);
   void GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  * pData, uint8_t blockSize);
 
   si4735_eeprom_patch_header GWDSI4735::downloadPatchFromEeprom(int eeprom_i2c_address);
