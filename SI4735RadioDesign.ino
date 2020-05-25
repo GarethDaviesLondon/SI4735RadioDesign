@@ -1,4 +1,5 @@
 #define DEBUG
+#define UPLOADPATCH
 
 #include "GWDSI4735.h"
 #include "Rotary.h"
@@ -92,6 +93,31 @@ int underBarY;  //This is the global Y value that set the location of the underb
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); //global handle to the display
 bool fast = false;
+
+#ifdef UPLOADPATCH
+void setup()
+{
+  Serial.begin(9600);
+  while (!Serial);
+  Serial.flush();
+  Serial.println();
+  Serial.println("\nUploading EEPROM MODE");
+  int16_t si4735Addr = si4735.getDeviceI2CAddress(RESET_PIN);
+  if ( si4735Addr == 0 ) {
+    Serial.println("Si473X not found!");
+    Serial.flush();
+    while (1);
+  } else {
+    Serial.print("The Si473X I2C address is 0x");
+    Serial.println(si4735Addr, HEX);
+  }
+  Serial.flush();
+  si4735.uploadPatchToEeprom();
+}
+
+void loop() {}
+
+#else
 
 void setup()
 {
@@ -242,6 +268,8 @@ void loop()
   }
 
 }
+
+#endif
 
 void doPUSHSWITCHButtonPress()
 {

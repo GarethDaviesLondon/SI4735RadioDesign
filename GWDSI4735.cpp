@@ -1,16 +1,136 @@
 #define DEBUG
+#define EEPROM_I2C_ADDR 0x50 // You might need to change this value
 #include "GWDSI4735.h"
 
 
-  int GWDSI4735::testMethod()
-  {
-    return 1;
-  }
+/*ID CHECK */
+const uint8_t content_id[] = "SI4735-D60-init-JUNE202-V1";
+const uint16_t size_id = sizeof content_id;
 
-  si4735_eeprom_patch_header GWDSI4735::downloadPatchFromEeprom(int eeprom_i2c_address)
+
+#ifdef UPLOADPATCH //Set in GWDSI4735.h
+#include "patch_init.h";
+  const uint16_t size_content = sizeof ssb_patch_content; // see ssb_patch_content in patch_full.h or patch_init.h
+
+//Store the SSB Patch into EEPROM
+int GWDSI4735::uploadPatchToEeprom(void)
+{
+  //Write Header
+  eepromWriteHeader();
+  if (!checkHeaderOK())
+  {
+    #ifdef DEBUG
+      Serial.println("Error has been Detected in Header Information");
+    #endif
+  }
+}
+
+void GWDSI4735::eepromWriteHeader(void)
+{
+   eepromWriteBlock(EEPROM_I2C_ADDR,0,content_id,size_id);
+   #ifdef DEBUG
+    Serial.print("EEPROM CONTENT ID Sent = ");
+    for (int a = 0; a< size_id; a++)
+    {
+      Serial.print("0x");
+      Serial.print(content_id[a],HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
+  #endif
+}
+
+void  GWDSI4735::eepromWriteBlock(uint8_t i2c_address, uint16_t offset, uint8_t const * pData, uint8_t blockSize)
+{
+  bytes_to_word16 eeprom;
+  eeprom.value = offset;
+
+  Wire.beginTransmission(i2c_address);
+  Wire.write(eeprom.raw.highByte); // Most significant Byte
+  Wire.write(eeprom.raw.lowByte);  // Less significant Byte
+
+  for (int i = 0; i < blockSize; i++)
+    Wire.write(*pData++); //dispatch the data bytes
+ 
+  Wire.endTransmission();
+  delay(5); 
+
+}
+
+void GWDSI4735::eepromWrite(uint8_t i2c_address, uint16_t offset, uint8_t data)
+{
+  bytes_to_word16 eeprom;
+  eeprom.value = offset;
+  Wire.beginTransmission(i2c_address);
+  // First, you have to tell where you want to save the data (offset is the position).
+  Wire.write(eeprom.raw.highByte); // Most significant Byte
+  Wire.write(eeprom.raw.lowByte);  // Less significant Byte
+  Wire.write(data);                // Writes the data at the right position (offset)
+  Wire.endTransmission();
+  delay(5);
+}
+#endif
+
+bool GWDSI4735::checkHeaderOK(void)
+{
+    uint8_t read_id[size_id];;
+    eepromReadBlock(EEPROM_I2C_ADDR,0,read_id,size_id); 
+  #ifdef DEBUG
+    Serial.print("EEPROM CONTENT ID Chek = ");
+    for (int a = 0; a< size_id; a++)
+    {
+      Serial.print("0x");
+      Serial.print(read_id[a],HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
+  #endif
+
+  for (int a=0;a<size_id;a++){
+    if (read_id[a] != content_id[a]) return false;
+  }
+  return true;
+}
+
+void  GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  * pData, uint8_t blockSize)
+{
+  bytes_to_word16 eeprom;
+  eeprom.value = offset;
+  
+
+  Wire.beginTransmission(i2c_address);
+  Wire.write(eeprom.raw.highByte); // Most significant Byte
+  Wire.write(eeprom.raw.lowByte);  // Less significant Byte
+  Wire.endTransmission();
+
+  Wire.requestFrom(i2c_address,blockSize);
+#ifdef DEBUG
+  uint8_t data;
+  Serial.print("EEPROM CONTENT IS Read = ");
+  for (int i = 0; i < blockSize; i++)
+  {
+    data=Wire.read(); //capture the data bytes
+    *pData++=data;
+      Serial.print("0x");
+      Serial.print(data,HEX);
+      Serial.print(" ");
+    }
+    Serial.println();
+ #else
+  for (int i = 0; i < blockSize; i++)
+  *pData++=Wire.read(); //capture the data bytes
+ #endif
+  
+  Wire.endTransmission();
+  delay(5);
+
+}
+  
+
+si4735_eeprom_patch_header GWDSI4735::downloadPatchFromEeprom(int eeprom_i2c_address)
 {
     #ifdef DEBUG
-      Serial.println("Hello from the other side");
+      Serial.println("Hello from GWDSI4735::downloadPatchFromEeprom"); //Checks I am using my version!
     #endif
     
     si4735_eeprom_patch_header eep;
@@ -77,6 +197,9 @@
     delay(50);
     return eep;
 }
+
+
+
 
 
 /**
