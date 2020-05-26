@@ -28,11 +28,13 @@ class GWDSI4735 : public SI4735 {
   protected:
 
 #ifdef UPLOADPATCH
-    bool GWDSI4735::checkDataWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength);
+    bool GWDSI4735::checkHeaderWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength);
+    bool GWDSI4735::checkPatchWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength);
     void eepromWriteHeader(void);
     void eepromWritePatch(void);
     void eepromWrite(uint8_t i2c_address, uint16_t offset, uint8_t data);
     void eepromWriteBlock(uint8_t i2c_address, uint16_t offset, uint8_t const * pData, uint8_t blockSize);
+    void eepromWriteInt(uint8_t i2c_address, uint16_t offset, uint16_t data);
 #endif
   
 };
