@@ -1,6 +1,9 @@
+#include "GWDSI4735.h"
+
 #define DEBUG
 #define EEPROM_I2C_ADDR 0x50 // You might need to change this value
-#include "GWDSI4735.h"
+#define SCREENWIDTH 8
+
 
 
 /*ID CHECK */
@@ -21,32 +24,63 @@ int GWDSI4735::uploadPatchToEeprom(void)
 {
   //Write Header
   eepromWriteHeader();
-  if (!checkHeaderOK(content_id))
+  if (!checkDataWroteOK(content_id,0,sizeof content_id))
   {
     #ifdef DEBUG
       Serial.println("[FAIL] Unexepected Error has been Detected in Header Information");
     #endif
   }
   #ifdef DEBUG
-  if (!checkHeaderOK(content_id_test))
+  if (!checkDataWroteOK(content_id_test,0,sizeof content_id_test))
   {
       Serial.println("[PASS] Deliberate Error was Detected in Header Information");
   } else {
       Serial.println("[FAIL] Deliberate Error was NOT Detected in Header Information"); 
   }
   #endif
+  eepromWritePatch();
+
+#ifdef DEBUG
+  if (checkDataWroteOK(ssb_patch_content,sizeof content_id,sizeof ssb_patch_content))
+  {
+      Serial.println("[PASS] Read MATCHES Patch Data");
+  } else {
+      Serial.println("[FAIL] Read Data DOES NOT MATCH Patch Data"); 
+  }
+#endif
 }
 
 void GWDSI4735::eepromWriteHeader(void)
 {
    eepromWriteBlock(EEPROM_I2C_ADDR,0,content_id,size_id);
    #ifdef DEBUG
-    Serial.print("EEPROM CONTENT ID Sent = ");
+    Serial.print("\nEEPROM CONTENT ID Sent for storage= \n");
+    int widthcheck=0;
     for (int a = 0; a< size_id; a++)
     {
       Serial.print("0x");
       Serial.print(content_id[a],HEX);
       Serial.print(" ");
+      widthcheck++;
+      if(widthcheck==SCREENWIDTH){widthcheck=0;Serial.println();}
+    }
+    Serial.println();
+  #endif
+}
+
+void GWDSI4735::eepromWritePatch(void)
+{
+   eepromWriteBlock(EEPROM_I2C_ADDR,sizeof content_id,ssb_patch_content,sizeof ssb_patch_content);
+   #ifdef DEBUG
+    int widthcheck=0;
+    Serial.print("\nEEPROM PATCH DATA Sent for storage= \n");
+    for (int a = 0; a< sizeof ssb_patch_content; a++)
+    {
+      Serial.print("0x");
+      Serial.print(content_id[a],HEX);
+      Serial.print(" ");
+      widthcheck++;
+      if(widthcheck==SCREENWIDTH){widthcheck=0;Serial.println();}
     }
     Serial.println();
   #endif
@@ -83,30 +117,37 @@ void GWDSI4735::eepromWrite(uint8_t i2c_address, uint16_t offset, uint8_t data)
 }
 #endif
 
-bool GWDSI4735::checkHeaderOK(const uint8_t  * pData)
+bool GWDSI4735::checkDataWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength)
 {
-    uint8_t read_id[size_id];;
-    eepromReadBlock(EEPROM_I2C_ADDR,0,read_id,size_id); 
+    uint8_t read_id[datalength];;
+    eepromReadBlock(EEPROM_I2C_ADDR,offset,read_id,datalength); 
   #ifdef DEBUG
-    Serial.print("EEPROM CONTENT ID Chek = ");
-    for (int a = 0; a< size_id; a++)
-    {
-      Serial.print("0x");
-      Serial.print(read_id[a],HEX);
-      Serial.print(" ");
-    }
-    Serial.println();
-    Serial.print("EEPROM COMPARE ID Chek = ");
-    for (int a = 0; a< size_id; a++)
+    Serial.print("\nDATA WE EXPECTED = \n");
+    int widthcheck=0;
+    for (int a = 0; a< datalength; a++)
     {
       Serial.print("0x");
       Serial.print(pData[a],HEX);
       Serial.print(" ");
+      widthcheck++;
+      if(widthcheck==SCREENWIDTH){widthcheck=0;Serial.println();}
+    }
+    Serial.println();
+    
+    Serial.print("\nEEPROM READ DATA = \n");
+    widthcheck=0;
+    for (int a = 0; a< datalength; a++)
+    {
+      Serial.print("0x");
+      Serial.print(read_id[a],HEX);
+      Serial.print(" ");
+      widthcheck++;
+      if(widthcheck==SCREENWIDTH){widthcheck=0;Serial.println();}
     }
     Serial.println();
   #endif
 
-  for (int a=0;a<size_id;a++){
+  for (int a=0;a<datalength;a++){
     if (read_id[a] != pData[a]) return false;
   }
   return true;
@@ -126,7 +167,8 @@ void  GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  
   Wire.requestFrom(i2c_address,blockSize);
 #ifdef DEBUG
   uint8_t data;
-  Serial.print("EEPROM CONTENT IS Read = ");
+  Serial.print("\nEEPROM CONTENT READ FROM EEPROM = \n");
+  int widthcheck=0;
   for (int i = 0; i < blockSize; i++)
   {
     data=Wire.read(); //capture the data bytes
@@ -134,6 +176,8 @@ void  GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  
       Serial.print("0x");
       Serial.print(data,HEX);
       Serial.print(" ");
+      widthcheck++;
+      if(widthcheck==SCREENWIDTH){widthcheck=0;Serial.println();}
     }
     Serial.println();
  #else
