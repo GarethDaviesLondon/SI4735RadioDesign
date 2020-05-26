@@ -1,6 +1,10 @@
 #include "GWDSI4735.h"
 
 #define DEBUG
+//#define DEBUGHEADER
+#define DEBUGPATCH
+//#define DEBUGDATA
+
 #define EEPROM_I2C_ADDR 0x50 // You might need to change this value
 #define SCREENWIDTH 8
 
@@ -32,6 +36,10 @@ int GWDSI4735::uploadPatchToEeprom(void)
     #endif
   }
   #ifdef DEBUG
+  else {
+    Serial.println("[PASS] No Error was detected in re-called Header Information");
+  }
+  Serial.println("\n\nDebug mode second pass - checking comparison of stored data with known error to check it is detected");
   if (!checkHeaderWroteOK(content_id_test,0,sizeof content_id_test))
   {
       Serial.println("[PASS] Deliberate Error was Detected in Header Information");
@@ -54,8 +62,10 @@ int GWDSI4735::uploadPatchToEeprom(void)
 
 void GWDSI4735::eepromWriteHeader(void)
 {
-   #ifdef DEBUG
-    Serial.print("\nEEPROM CONTENT ID Sent for storage= \n");
+   #ifdef DEBUGHEADER
+    Serial.print("\nHEADER WRITER EXECUTING\nEEPROM content identifier is being sent for storage\n"); 
+   #endif
+   #ifdef DEBUGDATA
     int widthcheck=0;
     for (int a = 0; a< size_id; a++)
     {
@@ -69,34 +79,41 @@ void GWDSI4735::eepromWriteHeader(void)
   #endif
   eepromWriteBlock(EEPROM_I2C_ADDR,0,content_id,size_id);
   uint16_t patch_length = sizeof ssb_patch_content;
+#ifdef DEBUGHEADER
+    Serial.print("\nPreparing to write the length of the patch data which follows = 0x");
+    Serial.print(patch_length,HEX);
+    Serial.println();
+#endif
   eepromWriteInt(EEPROM_I2C_ADDR,size_id,patch_length);
 }
 
 void GWDSI4735::eepromWritePatch(void)
 {
   register int i, offset;
-  uint8_t content;
+  uint8_t content[8];
   offset = sizeof content_id;
   
   bytes_to_word16 eeprom;
   eeprom.value = offset;
    
- #ifdef DEBUG
+ #ifdef DEBUGPATCH
     int widthcheck=0;
-    Serial.print("\nEEPROM PATCH DATA To be sent for storage= \n");
+    Serial.print("\nEEPROM PATCH DATA To be sent for storage\n");
  #endif
 
  
-  //Wire.beginTransmission(i2c_address);
-  //Wire.write(eeprom.raw.highByte); // Most significant Byte
-  //Wire.write(eeprom.raw.lowByte);  // Less significant Byte
+  Wire.beginTransmission(EEPROM_I2C_ADDR);
+
   
     for (offset = 0; offset < sizeof ssb_patch_content; offset += 8)
     {
+        eeprom.value+=offset;
+        Wire.write(eeprom.raw.highByte); // Most significant Byte
+        Wire.write(eeprom.raw.lowByte);  // Less significant Byte
         for (i = 0; i < 8; i++)
         {
-            content = pgm_read_byte_near(ssb_patch_content + (i + offset));
-  #ifdef DEBUG
+            content[i] = pgm_read_byte_near(ssb_patch_content + (i + offset));
+  #ifdef DEBUGDATA
             Serial.print("0x");
             Serial.print(content,HEX);
             Serial.print(" ");
@@ -104,8 +121,9 @@ void GWDSI4735::eepromWritePatch(void)
             if(widthcheck==SCREENWIDTH){widthcheck=0;Serial.println();}
   #endif
          }
+         Wire.write(content,sizeof content);
     }
-  #ifdef DEBUG
+  #ifdef DEBUGDATA
     Serial.println();
   #endif
 
@@ -131,7 +149,7 @@ void  GWDSI4735::eepromWriteBlock(uint8_t i2c_address, uint16_t offset, uint8_t 
   for (int i = 0; i < blockSize; i++)
   {
       Wire.write(*pData++); //dispatch the data bytes
-#ifdef DEBUG
+#ifdef DEBUGDATA
         Serial.print("0x");
         Serial.print(pData[i],HEX);
         Serial.print(" ");
@@ -139,7 +157,7 @@ void  GWDSI4735::eepromWriteBlock(uint8_t i2c_address, uint16_t offset, uint8_t 
         if(widthcheck==SCREENWIDTH){widthcheck=0;Serial.println();}
 #endif
   }
-#ifdef DEBUG
+#ifdef DEBUGDATA
   Serial.println();
 #endif
  
@@ -163,23 +181,39 @@ void GWDSI4735::eepromWrite(uint8_t i2c_address, uint16_t offset, uint8_t data)
 
 void GWDSI4735::eepromWriteInt(uint8_t i2c_address, uint16_t offset, uint16_t data)
 {
-  bytes_to_word16 eeprom,numbertowrite;
+  bytes_to_word16 eeprom,datatowrite;
   eeprom.value = offset;
+  datatowrite.value = data;
   Wire.beginTransmission(i2c_address);
   // First, you have to tell where you want to save the data (offset is the position).
   Wire.write(eeprom.raw.highByte); // Most significant Byte
   Wire.write(eeprom.raw.lowByte);  // Less significant Byte
-  Wire.write(data);                // Writes the data at the right position (offset)
+  Wire.write(datatowrite.raw.highByte);      // Writes the data at the right position (offset)
+  Wire.write(datatowrite.raw.lowByte);      // Writes the data at the right position (offset)
   Wire.endTransmission();
   delay(5);
 }
 
+uint16_t GWDSI4735::eepromReadInt(uint8_t i2c_address, uint16_t offset)
+{
+  bytes_to_word16 eeprom,datatowrite;
+  eeprom.value = offset;
+  
+  Wire.beginTransmission(i2c_address);
+  Wire.write(eeprom.raw.highByte); // offset Most significant Byte
+  Wire.write(eeprom.raw.lowByte); // offset Less significant Byte
+  Wire.endTransmission();
+  Wire.requestFrom(i2c_address, 2);
+  eeprom.raw.highByte=Wire.read();
+  eeprom.raw.lowByte=Wire.read();
+  return (eeprom.value);
+}
 
 bool GWDSI4735::checkHeaderWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength)
 {
     uint8_t read_id[datalength];;
     
-  #ifdef DEBUG
+  #ifdef DEBUGDATA
     Serial.print("\nCHECKING BY READING - THE DATA WE EXPECT BACK = \n");
     int widthcheck=0;
     for (int a = 0; a< datalength; a++)
@@ -192,9 +226,10 @@ bool GWDSI4735::checkHeaderWroteOK(const uint8_t  * pData, uint16_t offset, uint
     }
     Serial.println();
   #endif
+  
     eepromReadBlock(EEPROM_I2C_ADDR,offset,read_id,datalength);
          
-  #ifdef DEBUG
+  #ifdef DEBUGDATA
     Serial.print("\nEEPROM DATA SENT BACK FOR COMPARISON = \n");
     widthcheck=0;
     for (int a = 0; a< datalength; a++)
@@ -208,20 +243,20 @@ bool GWDSI4735::checkHeaderWroteOK(const uint8_t  * pData, uint16_t offset, uint
     Serial.println();
   #endif
 
-  #ifdef DEBUG
-    Serial.print("Checking Expected Patch Size recorded = ");
-    uint16_t patchSizeExpected;
-    eepromReadBlock(EEPROM_I2C_ADDR,size_id,(uint8_t)&patchSizeExpected,(uint8_t)0x02);
-    Serial.print(patchSizeExpected,HEX);
-    Serial.print("Patch Size to Send ");
-    Serial.println(sizeof ssb_patch_content);
+  uint16_t patchSizeExpected = eepromReadInt(EEPROM_I2C_ADDR,size_id);
+  #ifdef DEBUGHEADER
+    Serial.print("\nChecking Expected Patch Size recorded = 0x");
+    Serial.println(patchSizeExpected,HEX);
   #endif
 
   if (patchSizeExpected != sizeof ssb_patch_content) {return false;}
-  
-  for (int a=0;a<datalength;a++){
-    if (read_id[a] != pData[a]) return false;
-  }
+  #ifdef DEBUGHEADER
+    Serial.print("Passed Expected Patch Size Check\n");
+  #endif
+  for (int a = 0; a< datalength; a++)
+    {
+      if (read_id[a] != pData[a]) return false;
+    }
   return true;
 }
 
@@ -240,12 +275,12 @@ bool GWDSI4735::checkPatchWroteOK(const uint8_t  * pData, uint16_t offset, uint8
      Wire.write(eeprom.raw.highByte); // Most significant Byte
      Wire.write(eeprom.raw.lowByte);  // Less significant Byte
      Wire.endTransmission();
-     Wire.requestFrom(EEPROM_I2C_ADDR,8);
+     Wire.requestFrom((uint8_t)EEPROM_I2C_ADDR,(uint8_t)8);
 
         for (i = 0; i < 8; i++)
         {
             content = pgm_read_byte_near(ssb_patch_content + (i + offset));
-  #ifdef DEBUG
+  #ifdef DEBUGDATA
             Serial.print("Patch value 0x");
             Serial.print(content,HEX);
             Serial.print(" Compares to EEPROM VALUE 0x");
@@ -274,7 +309,7 @@ void  GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  
 
   Wire.requestFrom(i2c_address,blockSize);
   
-#ifdef DEBUG
+#ifdef DEBUGDATA
   uint8_t data;
   Serial.print("\nEEPROM RAW LOW-LEVEL CONTENT READING DIRECT FROM EEPROM = \n");
   int widthcheck=0;

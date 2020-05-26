@@ -35,6 +35,8 @@ class GWDSI4735 : public SI4735 {
     void eepromWrite(uint8_t i2c_address, uint16_t offset, uint8_t data);
     void eepromWriteBlock(uint8_t i2c_address, uint16_t offset, uint8_t const * pData, uint8_t blockSize);
     void eepromWriteInt(uint8_t i2c_address, uint16_t offset, uint16_t data);
+    uint16_t eepromReadInt(uint8_t i2c_address, uint16_t offset);
+    
 #endif
   
 };
