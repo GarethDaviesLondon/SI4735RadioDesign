@@ -1,6 +1,6 @@
 #define DEBUG
 //#define UPLOADPATCH
-#include "patch_init.h"
+//#include "patch_init.h"
 
 #include "GWDSI4735.h"
 #include "Rotary.h"
@@ -9,22 +9,10 @@
 #include <Adafruit_SSD1306.h> //This is the OLED driver library
 #include <EEPROM.h>
 
-//GWDSI4735 si4735;
-SI4735 si4735;
+GWDSI4735 si4735;
+//SI4735 si4735;
 
-//const uint16_t size_content = sizeof ssb_patch_content; // see ssb_patch_content in patch_full.h or patch_init.h
 
-#define AM_FUNCTION 1
-#define RESET_PIN 12
-
-#define LSB 1
-#define USB 2
-
-bool disableAgc = true;
-bool avc_en = true;
-
-uint8_t currentAGCAtt = 0;
-uint8_t rssi = 0;
 
 
 //ROTARY ENCODER parameters
@@ -83,12 +71,15 @@ int underBarY;  //This is the global Y value that set the location of the underb
 #define DEFAULTFREQ 7000000 //Set default frequency to 7Mhz. Only used when EEPROM not initialised
 #define DEFAULTSTEP 1000    //Set default tuning step size to 1Khz. Only used when EEPROM not initialised
 #define UPDATEDELAY 5000    //When tuning you don't want to be constantly writing to the EEPROM. So wait
-                            //For this period of stability before storing frequency and step size.                            
+                            //For this period of stability before storing frequency and step size
+#define BFORANGE 16000      //Hz before resetting maintuning on the SI4735 BFO
+                                                  
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 long tuneStep;        //global for the current increment - enables it to be changed in interrupt routines
 long ifFreq = IFFREQ+IFFERROR; //global for the receiver IF. Made variable so it could be manipulated by the CLI for instance
 double rx;            //global for the current receiver frequency
+long bfo = 0;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); //global handle to the display
 bool fast = false;
@@ -147,11 +138,13 @@ void setup()
     //Increment or decrement the frequency by the tuning step depending on direction of movement.
     if (result == DIR_CW) {
         rx+=tuneStep;
+        bfo+=tuneStep;
         if (rx>MAXFREQ) {rx = MAXFREQ;}
         displayFrequency(rx);
         sendFrequency(rx);
       } else {
         rx-=tuneStep;
+        bfo-=tuneStep;
         if (rx<MINFREQ) {rx = MINFREQ;}
         displayFrequency(rx);
         sendFrequency(rx);      
@@ -340,8 +333,19 @@ void printStatus(void)
 
 
 ///////////////////////////////////////////////////////////
+#define AM_FUNCTION 1
+#define RESET_PIN 12
+#define LSB 1
+#define USB 2
+
 uint8_t bandwidthIdx = 2;
 const char *bandwitdth[] = {"1.2", "2.2", "3.0", "4.0", "0.5", "1.0"};
+
+bool disableAgc = true;
+bool avc_en = true;
+
+uint8_t currentAGCAtt = 0;
+uint8_t rssi = 0;
 
 
 //////////////////////////////////////////////////////
@@ -361,11 +365,12 @@ void initialiseradio()
   si4735.setup(RESET_PIN, AM_FUNCTION);
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
-  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,1);
+  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,USB);
   displayFrequency(rx);
   si4735.setVolume(60);
   Serial.print("RX Freq = ");
   Serial.println(si4735.getFrequency());
+  si4735.setFrequency(getCurrentFreq());
   }
 }
 
@@ -384,7 +389,7 @@ void loadSSB()
   si4735.queryLibraryId(); // Is it really necessary here? I will check it.
   si4735.patchPowerUp();
   delay(50);
-  si4735.downloadPatch(ssb_patch_content, sizeof ssb_patch_content);
+  //si4735.downloadPatch(ssb_patch_content, sizeof ssb_patch_content);
   // Parameters
   // AUDIOBW - SSB Audio bandwidth; 0 = 1.2KHz (default); 1=2.2KHz; 2=3KHz; 3=4KHz; 4=500Hz; 5=1KHz;
   // SBCUTFLT SSB - side band cutoff filter for band passand low pass filter ( 0 or 1)
@@ -398,9 +403,12 @@ void loadSSB()
 //////////////////////////////////////////////////////
 
 void sendFrequency(long int frequency) {
-
-  si4735.setFrequency(getCurrentFreq());
-
+  if (abs(bfo)>BFORANGE)
+  {
+    bfo=0;
+    si4735.setFrequency(getCurrentFreq());
+  } 
+  si4735.setSSBBfo(bfo);
 }
 
 ///////////////////////////////////////////////////////////////

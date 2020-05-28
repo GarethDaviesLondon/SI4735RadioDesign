@@ -201,6 +201,8 @@ void GWDSI4735::eepromWrite(uint8_t i2c_address, uint16_t offset, uint8_t data)
   delay(5);
 }
 
+
+
 ///////////////////////////////////////////////////////////////
 void GWDSI4735::eepromWriteInt(uint8_t i2c_address, uint16_t offset, uint16_t data)
 {
@@ -217,22 +219,43 @@ void GWDSI4735::eepromWriteInt(uint8_t i2c_address, uint16_t offset, uint16_t da
   delay(5);
 }
 
-uint16_t GWDSI4735::eepromReadInt(uint8_t i2c_address, uint16_t offset)
-{
-  bytes_to_word16 eeprom,datatowrite;
-  eeprom.value = offset;
-  
-  Wire.beginTransmission(i2c_address);
-  Wire.write(eeprom.raw.highByte); // offset Most significant Byte
-  Wire.write(eeprom.raw.lowByte); // offset Less significant Byte
-  Wire.endTransmission();
-  Wire.requestFrom(i2c_address, 2);
-  eeprom.raw.highByte=Wire.read();
-  eeprom.raw.lowByte=Wire.read();
-  return (eeprom.value);
-}
 
 ///////////////////////////////////////////////////////////////
+bool GWDSI4735::checkPatchWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength)
+{
+  register int i,deltaOffset;
+  uint8_t content;
+  uint8_t readEpromContent[8];
+  bytes_to_word16 eeprom;
+ 
+
+  for (deltaOffset = 0; deltaOffset < sizeof ssb_patch_content; deltaOffset += 8)
+    {
+     eepromReadBlock(EEPROM_I2C_ADDR,offset+deltaOffset,readEpromContent,8);     
+        for (i = 0; i < 8; i++)
+        {
+            content = pgm_read_byte_near(ssb_patch_content + (i + deltaOffset));
+  #ifdef DEBUGPATCHDATA
+            Serial.print("Patch value 0x");
+            Serial.print(content,HEX);
+            Serial.print(" Compares to EEPROM VALUE 0x");
+            Serial.print(readEpromContent[i],HEX);
+            if (readEpromContent[i]==content)
+            {
+               Serial.println(" - OK");
+            } else {
+              Serial.println(" - Fail");
+            }
+  #endif
+            if (readEpromContent[i]!=content) return false;
+         }
+         Wire.endTransmission();
+    }
+    return true;
+}
+
+#endif //PATCHUPLOAD - THE CODE ABOVE HERE IS ONLY USED TO PROGRAMME THE EEPROM SO IS COMPILED ONLY WHEN NEEDED
+
 bool GWDSI4735::checkHeaderWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength)
 {
     uint8_t read_id[datalength];;
@@ -273,52 +296,19 @@ bool GWDSI4735::checkHeaderWroteOK(const uint8_t  * pData, uint16_t offset, uint
     Serial.println(patchSizeExpected,HEX);
   #endif
 
+#ifdef PATCHUPLOAD
   if (patchSizeExpected != sizeof ssb_patch_content) {return false;}
   #ifdef DEBUGHEADER
     Serial.print("Passed Expected Patch Size Check\n");
   #endif
+#endif
+
   for (int a = 0; a< datalength; a++)
     {
       if (read_id[a] != pData[a]) return false;
     }
   return true;
 }
-
-///////////////////////////////////////////////////////////////
-bool GWDSI4735::checkPatchWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength)
-{
-  register int i,deltaOffset;
-  uint8_t content;
-  uint8_t readEpromContent[8];
-  bytes_to_word16 eeprom;
- 
-
-  for (deltaOffset = 0; deltaOffset < sizeof ssb_patch_content; deltaOffset += 8)
-    {
-     eepromReadBlock(EEPROM_I2C_ADDR,offset+deltaOffset,readEpromContent,8);     
-        for (i = 0; i < 8; i++)
-        {
-            content = pgm_read_byte_near(ssb_patch_content + (i + deltaOffset));
-  #ifdef DEBUGPATCHDATA
-            Serial.print("Patch value 0x");
-            Serial.print(content,HEX);
-            Serial.print(" Compares to EEPROM VALUE 0x");
-            Serial.print(readEpromContent[i],HEX);
-            if (readEpromContent[i]==content)
-            {
-               Serial.println(" - OK");
-            } else {
-              Serial.println(" - Fail");
-            }
-  #endif
-            if (readEpromContent[i]!=content) return false;
-         }
-         Wire.endTransmission();
-    }
-    return true;
-}
-
-#endif //PATCHUPLOAD - THE CODE ABOVE HERE IS ONLY USED TO PROGRAMME THE EEPROM SO IS COMPILED ONLY WHEN NEEDED
 
 
 ///////////////////////////////////////////////////////////////
@@ -359,50 +349,58 @@ void  GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  
   delay(5);
 
 }
+
+
+///////////////////////////////////////////////////////////////
+
+
+uint16_t GWDSI4735::eepromReadInt(uint8_t i2c_address, uint16_t offset)
+{
+  bytes_to_word16 eeprom,datatowrite;
+  eeprom.value = offset;
+  
+  Wire.beginTransmission(i2c_address);
+  Wire.write(eeprom.raw.highByte); // offset Most significant Byte
+  Wire.write(eeprom.raw.lowByte); // offset Less significant Byte
+  Wire.endTransmission();
+  Wire.requestFrom(i2c_address, 2);
+  eeprom.raw.highByte=Wire.read();
+  eeprom.raw.lowByte=Wire.read();
+  return (eeprom.value);
+}
+
   
 ///////////////////////////////////////////////////////////////
-si4735_eeprom_patch_header GWDSI4735::downloadPatchFromEeprom(int eeprom_i2c_address)
+void GWDSI4735::downloadPatchFromEeprom(void)
 {
     #ifdef DEBUG
       Serial.println("Hello from GWDSI4735::downloadPatchFromEeprom"); //Checks I am using my version!
     #endif
-    
-    si4735_eeprom_patch_header eep;
-    const int header_size = sizeof eep;
+  
     uint8_t bufferAux[8];
     int offset, i;
 
-    // Gets the EEPROM patch header information
-    Wire.beginTransmission(eeprom_i2c_address);
-    Wire.write(0x00); // offset Most significant Byte
-    Wire.write(0x00); // offset Less significant Byte
-    Wire.endTransmission();
-    delay(5);
-
-    // The first two bytes of the header will be ignored.
-    for (int k = 0; k < header_size; k += 8) {
-        Wire.requestFrom(eeprom_i2c_address, 8);
-        for (int i = k; i < (k+8); i++)
-        {
-            eep.raw[i] = Wire.read();
-            #ifdef DEBUG
-              Serial.print("Data ");
-              Serial.println(eep.raw[i],HEX);
-            #endif
-        }
+    // Check the EEPROM patch header information
+    if (!checkHeaderWroteOK(content_id,0,size_id))
+    {
+      Serial.println("Error in EEPROM Data Header does not match - Abort Patch Load");
+      return;
     }
 
+    //Get the length of the patch data
+    int patchLength=eepromReadInt(EEPROM_I2C_ADDR,size_id);
+
     // Transferring patch from EEPROM to SI4735 device
-    offset = header_size;
-    for (i = 0; i < (int)eep.refined.patch_size; i += 8)
+    offset = size_id+2;
+    for (i = 0; i < patchLength; i += 8)
     {
         // Reads patch content from EEPROM
-        Wire.beginTransmission(eeprom_i2c_address);
+        Wire.beginTransmission(EEPROM_I2C_ADDR);
         Wire.write((int)offset >> 8);   // header_size >> 8 wil be always 0 in this case
         Wire.write((int)offset & 0XFF); // offset Less significant Byte
         Wire.endTransmission();
 
-        Wire.requestFrom(eeprom_i2c_address, 8);
+        Wire.requestFrom(EEPROM_I2C_ADDR, 8);
         for (int j = 0; j < 8; j++)
         {
             bufferAux[j] = Wire.read();
@@ -421,15 +419,13 @@ si4735_eeprom_patch_header GWDSI4735::downloadPatchFromEeprom(int eeprom_i2c_add
         // The SI4735 issues a status after each 8 byte transfered.Just the bit 7(CTS)should be seted.if bit 6(ERR)is seted, the system halts.
         if (cmd_status != 0x80)
         {
-            strcpy((char *) eep.refined.patch_id, "error!");
-            return eep;
+            Serial.println("Error in EEPROM writing data to SI4735 - Abort Patch Load");
         }
         offset += 8;                                 // Start processing the next 8 bytes
         delay(250);
     }
 
     delay(50);
-    return eep;
 }
 
 
