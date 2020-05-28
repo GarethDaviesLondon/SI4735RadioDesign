@@ -421,7 +421,7 @@ void GWDSI4735::downloadPatchFromEeprom(void)
         Wire.write(bufferAux, 8);
         Wire.endTransmission();
         waitToSend();
-        /*
+        
         uint8_t cmd_status;       
         Wire.requestFrom(deviceAddress, 1);
         cmd_status = Wire.read();
@@ -431,7 +431,7 @@ void GWDSI4735::downloadPatchFromEeprom(void)
             Serial.println("Error in EEPROM writing data to SI4735 - Abort Patch Load");
             return;
         }
-        */
+        
         offset += 8;                                 // Start processing the next 8 bytes
     }
     #ifdef DEBUG

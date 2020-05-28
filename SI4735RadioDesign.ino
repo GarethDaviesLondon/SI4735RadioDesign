@@ -125,9 +125,7 @@ void setup()
 #ifndef EXCLUDERADIO
   initialiseradio();
 #endif
-
-  sendFrequency(rx); //send the command to the 9850 Module, adjusted up by the IF Frequency
-
+//while(1);
 }
 
 
@@ -136,7 +134,6 @@ void setup()
  void loop ()
  {
   int result = r.process();       //This checks to see if there has been an event on the rotary encoder.
-  updatesmeter();
   if (result)
   {
     freqChanged=true; //used to check the EEPROM writing            
@@ -371,12 +368,13 @@ return;
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
   //si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,USB);
-  si4735.setSSB(100,30000,getCurrentFreq(),1,USB);
+  si4735.setSSB(100,30000,14015,1,USB);
   displayFrequency(rx);
   si4735.setVolume(60);
   Serial.print("RX Freq = ");
   Serial.println(si4735.getFrequency());
-  si4735.setFrequency(getCurrentFreq());
+  si4735.setFrequency(14015);
+  //si4735.setFrequency(getCurrentFreq());
   }
 }
 
