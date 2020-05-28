@@ -9,7 +9,8 @@
 #include <Adafruit_SSD1306.h> //This is the OLED driver library
 #include <EEPROM.h>
 
-
+//GWDSI4735 si4735;
+SI4735 si4735;
 
 //const uint16_t size_content = sizeof ssb_patch_content; // see ssb_patch_content in patch_full.h or patch_init.h
 
@@ -22,52 +23,9 @@
 bool disableAgc = true;
 bool avc_en = true;
 
-int currentBFO = 0;
-
-// Some variables to check the SI4735 status
-uint16_t currentFrequency;
-uint8_t currentStep = 1;
-uint8_t currentBFOStep = 25;
-
-uint8_t bandwidthIdx = 2;
-const char *bandwitdth[] = {"1.2", "2.2", "3.0", "4.0", "0.5", "1.0"};
-
-
-long et1 = 0, et2 = 0;
-
-typedef struct
-{
-  uint16_t minimumFreq;
-  uint16_t maximumFreq;
-  uint16_t currentFreq;
-  uint16_t currentStep;
-  uint8_t currentSSB;
-} Band;
-
-Band band[] = {
-  {1800, 2000, 1933, 1, LSB},
-  {3500, 4000, 3550, 1, LSB},
-  {7000, 7500, 7010, 1, LSB},
-  {7200, 8000, 7200, 1, LSB},
-  {10000, 10500, 10050, 1, USB},
-  {14000, 14300, 14015, 1, USB},
-  {18000, 18300, 18100, 1, USB},
-  {21000, 21400, 21050, 1, USB},
-  {24890, 25000, 24940, 1, USB},
-  {27000, 27700, 27300, 1, USB},
-  {28000, 28500, 28050, 1, USB}
-};
-
-const int lastBand = (sizeof band / sizeof(Band)) - 1;
-int currentFreqIdx = 2;
-
 uint8_t currentAGCAtt = 0;
-
 uint8_t rssi = 0;
 
-
-//GWDSI4735 si4735;
-SI4735 si4735;
 
 //ROTARY ENCODER parameters
 #define ROTARYLEFT 2  //Pin the left turn on the encoder is connected to Arduino
@@ -98,16 +56,18 @@ int underBarY;  //This is the global Y value that set the location of the underb
 //Might as well put the banner here, because you'll change it for your callsign!
 //Just raise a pint in my direction when you tell everyone that you wrote this :-)
 
-#define DISPLAYIFFREQUENCY //This displays the IFFREQ. 
-//#define USEBANNER //bit of fun with a banner message, comment out if you want to turn it off
-//#define BANNERMESSAGE "AD9850 VFO V2.1 G0CIT"
+//#define DISPLAYIFFREQUENCY //This displays the IFFREQ. 
+#define USEBANNER //bit of fun with a banner message, comment out if you want to turn it off
+#define BANNERMESSAGE "SI4735 RADIO V1.0"
 #define BANNERX 0
 #define BANNERY 25
 
 //The following values need to be positive as they are used as "unsigned long int" types in the EEPROM routines
 
-#define IFFREQ 455000 //IF Frequency - offset between displayed and produced signal
-#define IFFERROR 1500 //Observed error in BFO
+//#define IFFREQ 455000 //IF Frequency - offset between displayed and produced signal
+//#define IFFERROR 1500 //Observed error in BFO
+#define IFFREQ 0 //IF Frequency - offset between displayed and produced signal
+#define IFFERROR 0 //Observed error in BFO
 #define MAXFREQ 30000000  //Sets the upper edge of the frequency range (30Mhz)
 #define MINFREQ 100000    //Sets the lower edge of the frequency range (100Khz)
 
@@ -123,20 +83,15 @@ int underBarY;  //This is the global Y value that set the location of the underb
 #define DEFAULTFREQ 7000000 //Set default frequency to 7Mhz. Only used when EEPROM not initialised
 #define DEFAULTSTEP 1000    //Set default tuning step size to 1Khz. Only used when EEPROM not initialised
 #define UPDATEDELAY 5000    //When tuning you don't want to be constantly writing to the EEPROM. So wait
-                            //For this period of stability before storing frequency and step size.
-                            
+                            //For this period of stability before storing frequency and step size.                            
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 long tuneStep;        //global for the current increment - enables it to be changed in interrupt routines
 long ifFreq = IFFREQ+IFFERROR; //global for the receiver IF. Made variable so it could be manipulated by the CLI for instance
 double rx;            //global for the current receiver frequency
 
-
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); //global handle to the display
 bool fast = false;
-
-
 
 #ifndef UPLOADPATCH
 
@@ -163,12 +118,16 @@ void setup()
   pinMode(SW3, INPUT_PULLUP);
   pinMode(SW4, INPUT_PULLUP);
   
+  displaybanner();        //Show a banner message to the world
   testsmeter();           //Swing the smeter to check it's functioning
   readDefaults();         //check EEPROM for startup conditions
   setTuneStepIndicator(); //set up the X&Y for the step underbar 
-  initialiseradio();
   displayFrequency(rx);   //display the frequency on the OLED
-  sendFrequency(rx+ifFreq); //send the command to the 9850 Module, adjusted up by the IF Frequency
+
+//Set up the radio
+  //initialiseradio();
+
+  sendFrequency(rx); //send the command to the 9850 Module, adjusted up by the IF Frequency
 
 }
 
@@ -228,266 +187,73 @@ void setup()
  }
 #endif //NDEF OF UPLOADPATCH
 
-//////////////////////////////////////////////////////
-void initialiseradio()
+///////////////////////////////////
+bool isLongPress(int button)
 {
-    int16_t si4735Addr = si4735.getDeviceI2CAddress(RESET_PIN);
-  if ( si4735Addr == 0 ) {
-    Serial.println("Si473X not found!");
-    Serial.flush();
-    while (1);
-  } else {
-#ifdef DEBUG
-    Serial.print("The Si473X I2C address is 0x");
-    Serial.println(si4735Addr, HEX);
-#endif
-
-   // Testing I2C clock speed and SSB behaviour
-  // si4735.setI2CLowSpeedMode();     //  10000 (10KHz)
-   si4735.setI2CStandardMode();        // 100000 (100KHz)
-  // si4735.setI2CFastMode();         // 400000 (400KHz)
-  // si4735.setI2CFastModeCustom(500000); // It is not safe and can crash.
-
-  si4735.setup(RESET_PIN, AM_FUNCTION);
-  #ifdef DEBUG
-  Serial.println("SSB patch is loading...");
-  et1 = millis();
-#endif
-
-loadSSB();
- 
-#ifdef DEBUG
-  et2 = millis();
-  Serial.print("SSB patch was loaded in: ");
-  Serial.print( (et2 - et1) );
-  Serial.println("ms");
-#endif
-
- 
-  si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
-  si4735.setSSB(band[currentFreqIdx].minimumFreq, band[currentFreqIdx].maximumFreq, band[currentFreqIdx].currentFreq, band[currentFreqIdx].currentStep, band[currentFreqIdx].currentSSB);
-  currentFrequency = si4735.getFrequency();
-  displayFrequency(rx);
-  si4735.setVolume(60);
-  }
-}
-
-
-//////////////////////////////////////////////////////
-
-void updatesmeter(void)
-{
-   int sigStrength;
-   si4735.getCurrentReceivedSignalQuality();
-   sigStrength=si4735.getCurrentRSSI();
-   analogWrite(9,sigStrength*2); 
-}
-
-void testsmeter(void)
-{
-  /*test analogue Meter*/
-  for (int a=0;a<255;a++)
+  long int pressTime = millis();  //reord when we enter the routine, used to determine shortlongPress
+  waitStopBounce(button);               //wait until the switch noise has gone
+  while (digitalRead(button) == LOW) //Sit in this routine while the button is pressed
   {
-      analogWrite(9,a);
-      delay(10);
+    delay(1); //No operation but makes sure the compiler doesn't optimise this code away
   }
-  delay(300);
-  for (int a=255;a>0;a--)
-  {
-      analogWrite(9,a);
-      delay(10);
-  }
- }
-
-void doMainButtonPress(){
+  pressTime = millis() - pressTime; //This records the duration of the button press
   
-    long int pressTime = millis();  //reord when we enter the routine, used to determine the length of the button
-                                    //press
-    
-    waitStopBounce(PUSHSWITCH);               //wait until the switch noise has gone  
-    
-
-
-    while (digitalRead(PUSHSWITCH)==LOW) //Sit in this routine while the button is pressed
-    {
-      delay(1); //No operation but makes sure the compiler doesn't optimise this code away
-    }
-    
-    pressTime=millis()-pressTime; //This records the duration of the button press
-
-#ifdef DEBUG
+  #ifdef DEBUG
     Serial.print("Button Press Duration (ms) : ");
     Serial.println(pressTime);
-#endif
+  #endif
+
+  if (pressTime > LONGPRESS) return true;
+  return false;
+}
+
+
+/////////////////////////////////////
+void doMainButtonPress(){
     
-    if (pressTime > LONGPRESS) //Check against the defined length of a long press
+    if (isLongPress(PUSHSWITCH)==true) //Check against the defined length of a long press
     {
        //Do long press operations
-
-#ifdef DEBUG
-      Serial.println("Long Press Detected");
-      for (int a=0;a<5;a++)
-      {
-        digitalWrite(LED_BUILTIN,HIGH);
-        delay(500);
-        digitalWrite(LED_BUILTIN,LOW);
-        delay(500);
-      }
-#endif
-    }
-    
+    }  
     else
     {
       //Do short press operations
       changeFeqStep();
-
-      
-#ifdef DEBUG
-      Serial.println("Short Press Detected");
-      for (int a=0;a<5;a++)
-      {
-        digitalWrite(LED_BUILTIN,HIGH);
-        delay(100);
-        digitalWrite(LED_BUILTIN,LOW);
-        delay(100);
-      }
-#endif
     }
 }
 
+
+///////////////////////////////////////////////////////////////
 void doSw1ButtonPress()
 {
-  {
     waitStopBounce(SW1);
-    bandwidthIdx++;
-    if (bandwidthIdx > 5)
-      bandwidthIdx = 0;
-    si4735.setSSBAudioBandwidth(bandwidthIdx);
-    // If audio bandwidth selected is about 2 kHz or below, it is recommended to set Sideband Cutoff Filter to 0.
-    if (bandwidthIdx == 0 || bandwidthIdx == 4 || bandwidthIdx == 5)
-      si4735.setSBBSidebandCutoffFilter(0);
-    else
-      si4735.setSBBSidebandCutoffFilter(1);
-  }
+    cycleBandwidth();
 }
 
 void doSw2ButtonPress()
 {
-
-  long int pressTime = millis();  //reord when we enter the routine, used to determine the length of the button
-  //press
-
-  waitStopBounce(SW2);               //wait until the switch noise has gone
-
-  while (digitalRead(SW2) == LOW) //Sit in this routine while the button is pressed
+  if (isLongPress(SW2)==true) //Check against the defined length of a long press
   {
-    delay(1); //No operation but makes sure the compiler doesn't optimise this code away
-  }
-
-  pressTime = millis() - pressTime; //This records the duration of the button press
-
-#ifdef DEBUG
-  Serial.print("Button Press Duration (ms) : ");
-  Serial.println(pressTime);
-#endif
-
-  if (pressTime > LONGPRESS) //Check against the defined length of a long press
-  {
-#ifdef DEBUG
-    Serial.println("Long Press Detected");
-#endif
-
-    disableAgc = !disableAgc;
-    // siwtch on/off ACG; AGC Index = 0. It means Minimum attenuation (max gain)
-    si4735.setAutomaticGainControl(disableAgc, currentAGCAtt);
+      toggleAGC();
   }
   else
   {
-#ifdef DEBUG
-    Serial.println("Short Press Detected");
-#endif
-
     {
-      if (currentAGCAtt == 0)
-        currentAGCAtt = 1;
-      else if (currentAGCAtt == 1)
-        currentAGCAtt = 5;
-      else if (currentAGCAtt == 5)
-        currentAGCAtt = 15;
-      else if (currentAGCAtt == 15)
-        currentAGCAtt = 26;
-      else
-        currentAGCAtt = 0;
-      si4735.setAutomaticGainControl(1, currentAGCAtt);
+      cycleAGC();
     }
   }
 }
 
 void doSw3ButtonPress()
 {
-  long int pressTime = millis();  //reord when we enter the routine, used to determine the length of the button
-  //press
-
-  waitStopBounce(SW2);               //wait until the switch noise has gone
-
-  while (digitalRead(SW2) == LOW) //Sit in this routine while the button is pressed
-  {
-    delay(1); //No operation but makes sure the compiler doesn't optimise this code away
-  }
-
-  pressTime = millis() - pressTime; //This records the duration of the button press
-
-#ifdef DEBUG
-  Serial.print("Button Press Duration (ms) : ");
-  Serial.println(pressTime);
-#endif
-
-  if (pressTime > LONGPRESS) //Check against the defined length of a long press
-  {
-#ifdef DEBUG
-    Serial.println("Long Press Detected");
-#endif
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
-      Serial.println(F("SSD1306 failed"));
-      for (;;); // Don't proceed, loop forever
-    }
-    display.clearDisplay();
-    display.display();
-    displayFrequency(rx);
-  }
-  else
-  {
-#ifdef DEBUG
-    Serial.println("Short Press Detected");
-#endif
-   // bandUp();
-    displayFrequency(rx);
-  }
 }
 
 void doSw4ButtonPress()
 {
-  waitStopBounce(SW4);
-  //bandDown();
-  displayFrequency(rx);
+
 }
 
-
-void loadSSB()
-{
-  si4735.queryLibraryId(); // Is it really necessary here? I will check it.
-  si4735.patchPowerUp();
-  delay(50);
-  si4735.downloadPatch(ssb_patch_content, sizeof ssb_patch_content);
-  // Parameters
-  // AUDIOBW - SSB Audio bandwidth; 0 = 1.2KHz (default); 1=2.2KHz; 2=3KHz; 3=4KHz; 4=500Hz; 5=1KHz;
-  // SBCUTFLT SSB - side band cutoff filter for band passand low pass filter ( 0 or 1)
-  // AVC_DIVIDER  - set 0 for SSB mode; set 3 for SYNC mode.
-  // AVCEN - SSB Automatic Volume Control (AVC) enable; 0=disable; 1=enable (default).
-  // SMUTESEL - SSB Soft-mute Based on RSSI or SNR (0 or 1).
-  // DSP_AFCDIS - DSP AFC Disable or enable; 0=SYNC MODE, AFC enable; 1=SSB MODE, AFC disable.
-  si4735.setSSBConfig(bandwidthIdx, 1, 0, 1, 0, 1);
-}
+//////////////////////////////////////////////////////////////////////////
 
 void changeFeqStep()
 {
@@ -556,11 +322,154 @@ void changeFeqStep()
 }
 
 
-void sendFrequency(double frequency) {
+///////////////////////////////////////////////////////////
+
+
+
+///////////////////////////////////////////////////////////
+uint8_t bandwidthIdx = 2;
+const char *bandwitdth[] = {"1.2", "2.2", "3.0", "4.0", "0.5", "1.0"};
+
+
+//////////////////////////////////////////////////////
+void initialiseradio()
+{
+    int16_t si4735Addr = si4735.getDeviceI2CAddress(RESET_PIN);
+  if ( si4735Addr == 0 ) {
+    Serial.println("Si473X not found!");
+    Serial.flush();
+    while (1);
+  } else {
+#ifdef DEBUG
+    Serial.print("The Si473X I2C address is 0x");
+    Serial.println(si4735Addr, HEX);
+#endif
+
+   // Testing I2C clock speed and SSB behaviour
+  // si4735.setI2CLowSpeedMode();     //  10000 (10KHz)
+   si4735.setI2CStandardMode();        // 100000 (100KHz)
+  // si4735.setI2CFastMode();         // 400000 (400KHz)
+  // si4735.setI2CFastModeCustom(500000); // It is not safe and can crash.
+
+  si4735.setup(RESET_PIN, AM_FUNCTION);
+  loadSSB();
+  si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
+  si4735.setSSB(MINFREQ,MAXFREQ,rx,1,1);
+  rx = si4735.getFrequency();
+  displayFrequency(rx);
+  si4735.setVolume(60);
+  }
 }
 
 
+////////////////////////////////////////////////////////////////////////
+
+void loadSSB()
+{
+  si4735.queryLibraryId(); // Is it really necessary here? I will check it.
+  si4735.patchPowerUp();
+  delay(50);
+  si4735.downloadPatch(ssb_patch_content, sizeof ssb_patch_content);
+  // Parameters
+  // AUDIOBW - SSB Audio bandwidth; 0 = 1.2KHz (default); 1=2.2KHz; 2=3KHz; 3=4KHz; 4=500Hz; 5=1KHz;
+  // SBCUTFLT SSB - side band cutoff filter for band passand low pass filter ( 0 or 1)
+  // AVC_DIVIDER  - set 0 for SSB mode; set 3 for SYNC mode.
+  // AVCEN - SSB Automatic Volume Control (AVC) enable; 0=disable; 1=enable (default).
+  // SMUTESEL - SSB Soft-mute Based on RSSI or SNR (0 or 1).
+  // DSP_AFCDIS - DSP AFC Disable or enable; 0=SYNC MODE, AFC enable; 1=SSB MODE, AFC disable.
+  si4735.setSSBConfig(bandwidthIdx, 1, 0, 1, 0, 1);
+}
+
+//////////////////////////////////////////////////////
+
+void sendFrequency(long int frequency) {
+}
+
+///////////////////////////////////////////////////////////////
+
+void toggleAGC(void)
+{
+    disableAgc = !disableAgc;
+    // siwtch on/off ACG; AGC Index = 0. It means Minimum attenuation (max gain)
+    si4735.setAutomaticGainControl(disableAgc, currentAGCAtt);
+}
+
+
+///////////////////////////////////////////////////////////////
+
+void cycleAGC (void)
+{
+    if (currentAGCAtt == 0)
+        currentAGCAtt = 1;
+      else if (currentAGCAtt == 1)
+        currentAGCAtt = 5;
+      else if (currentAGCAtt == 5)
+        currentAGCAtt = 15;
+      else if (currentAGCAtt == 15)
+        currentAGCAtt = 26;
+      else
+        currentAGCAtt = 0;
+      si4735.setAutomaticGainControl(1, currentAGCAtt);
+}
 //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void cycleBandwidth(void)
+{
+  bandwidthIdx++;
+    if (bandwidthIdx > 5)
+      bandwidthIdx = 0;
+    si4735.setSSBAudioBandwidth(bandwidthIdx);
+    // If audio bandwidth selected is about 2 kHz or below, it is recommended to set Sideband Cutoff Filter to 0.
+    if (bandwidthIdx == 0 || bandwidthIdx == 4 || bandwidthIdx == 5)
+      si4735.setSBBSidebandCutoffFilter(0);
+    else
+      si4735.setSBBSidebandCutoffFilter(1);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void updatesmeter(void)
+{
+   int sigStrength;
+   si4735.getCurrentReceivedSignalQuality();
+   sigStrength=si4735.getCurrentRSSI();
+   analogWrite(9,sigStrength*2); 
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void testsmeter(void)
+{
+  /*test analogue Meter*/
+  for (int a=0;a<255;a++)
+  {
+      analogWrite(9,a);
+      delay(10);
+  }
+  delay(300);
+  for (int a=255;a>0;a--)
+  {
+      analogWrite(9,a);
+      delay(10);
+  }
+ }
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void displaybanner(void)
+{
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(2); // Draw 2X-scale text
+  display.setCursor(10, 0);
+  display.println(F("Si4735"));
+  display.setCursor(BANNERX, BANNERY);
+  display.setTextSize(1); // Draw 1X-scale text
+  display.println(F("Gareth Davies"));
+  display.display(); 
+
+}
 
 void displayFrequency(long int freq)
 {
@@ -577,11 +486,6 @@ void displayFrequency(long int freq)
   long int ones = ((hz / 1) % 10);
 
 #ifdef DEBUG
-  //This checks the calculation for frequency worked.
-  Serial.print("CF=");
-  Serial.print(currentFrequency);
-  Serial.print(" BFO=");
-  Serial.print(currentBFO);
   Serial.print(" HZ=");
   Serial.println(hz);
   Serial.print(millions);
@@ -595,8 +499,6 @@ void displayFrequency(long int freq)
   Serial.print(ones);
   Serial.println();
 #endif
-
-
   display.clearDisplay();
   display.setTextSize(2); // Draw 2X-scale text
   display.setTextColor(SSD1306_WHITE);
@@ -618,7 +520,6 @@ void displayFrequency(long int freq)
   display.print(ones);
   display.setCursor(underBarX, underBarY);
   display.print("-");
-
 #ifdef USEBANNER
   display.setCursor(BANNERX, BANNERY);
   display.print(BANNERMESSAGE);
@@ -668,6 +569,7 @@ void waitStopBounce(int pin)
   }
 }
 
+////////////////////////////////////////////////////////////////////////////////////////
 
 void readDefaults()
 {
@@ -705,7 +607,6 @@ void commitEPROMVals()
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
-
 void writeEPROM(int addr, unsigned long int inp)
 {
   byte lsb=inp;
@@ -725,7 +626,6 @@ void writeEPROM(int addr, unsigned long int inp)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
-
 
 unsigned long int readEPROM(int addr)
 {
@@ -752,7 +652,7 @@ unsigned long int readEPROM(int addr)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////////////////////
-//THIS IS CODE FOR BRANCHING OFF TO LOAD THE EEPROM PATCH
+//THIS IS CODE FOR BRANCHING OFF TO UPLOAD STATIC CODE FOR THE SSB EEPROM PATCH
 
 #ifdef UPLOADPATCH //ONLY IF THIS IS SET.
 void setup()
@@ -776,5 +676,6 @@ void setup()
 }
 
 void loop() {}
-////////////////////////////////////////////////ABOVE HERE IS CODE FOR LOADING AN EEPROM WITH SSB PATCH
 #endif
+
+////////////////////////////////////////////////ABOVE HERE IS CODE FOR LOADING AN EEPROM WITH SSB PATCH
