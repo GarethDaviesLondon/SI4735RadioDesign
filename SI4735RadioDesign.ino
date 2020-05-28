@@ -118,6 +118,7 @@ void setup()
   pinMode(SW3, INPUT_PULLUP);
   pinMode(SW4, INPUT_PULLUP);
   
+  Wire.setClock(10000);   // I2C Speed available
   displaybanner();        //Show a banner message to the world
   testsmeter();           //Swing the smeter to check it's functioning
   readDefaults();         //check EEPROM for startup conditions
@@ -125,8 +126,7 @@ void setup()
   displayFrequency(rx);   //display the frequency on the OLED
 
 //Set up the radio
-  //initialiseradio();
-
+  initialiseradio();
   sendFrequency(rx); //send the command to the 9850 Module, adjusted up by the IF Frequency
 
 }
@@ -142,6 +142,7 @@ void setup()
   {
     freqChanged=true; //used to check the EEPROM writing            
     lastMod=millis(); //used to check the EEPROM writing
+    printStatus();
     
     //Increment or decrement the frequency by the tuning step depending on direction of movement.
     if (result == DIR_CW) {
@@ -324,6 +325,18 @@ void changeFeqStep()
 
 ///////////////////////////////////////////////////////////
 
+////////
+void printStatus(void)
+{
+   Serial.print("RADIO RX Freq = ");
+   Serial.print(si4735.getFrequency());
+   Serial.print(" RSSI = ");
+   si4735.getCurrentReceivedSignalQuality();
+   Serial.print(si4735.getCurrentRSSI());
+   Serial.print(" SNR = ");
+   Serial.print(si4735.getCurrentSNR());   
+   Serial.println();
+}
 
 
 ///////////////////////////////////////////////////////////
@@ -345,20 +358,22 @@ void initialiseradio()
     Serial.println(si4735Addr, HEX);
 #endif
 
-   // Testing I2C clock speed and SSB behaviour
-  // si4735.setI2CLowSpeedMode();     //  10000 (10KHz)
-   si4735.setI2CStandardMode();        // 100000 (100KHz)
-  // si4735.setI2CFastMode();         // 400000 (400KHz)
-  // si4735.setI2CFastModeCustom(500000); // It is not safe and can crash.
-
   si4735.setup(RESET_PIN, AM_FUNCTION);
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
-  si4735.setSSB(MINFREQ,MAXFREQ,rx,1,1);
-  rx = si4735.getFrequency();
+  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,1);
   displayFrequency(rx);
   si4735.setVolume(60);
+  Serial.print("RX Freq = ");
+  Serial.println(si4735.getFrequency());
   }
+}
+
+////////////////////////////////////////////////////////////////////////
+uint16_t getCurrentFreq(void)
+{
+  uint16_t newval = rx/1000;
+  return newval;
 }
 
 
@@ -383,6 +398,9 @@ void loadSSB()
 //////////////////////////////////////////////////////
 
 void sendFrequency(long int frequency) {
+
+  si4735.setFrequency(getCurrentFreq());
+
 }
 
 ///////////////////////////////////////////////////////////////
