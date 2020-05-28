@@ -4,7 +4,7 @@
 
 //////////////////////////////////
 //These were used to debug the programming of the EEPROM when tracking a particulary obscure bug....
-//#define DEBUG
+#define DEBUG
 //#define DEBUGDATA
 //#define DEBUGHEADER
 //#define DEBUGHEADERDATA
@@ -119,6 +119,8 @@ void GWDSI4735::eepromWritePatch(void)
   register int i, offset,deltaOffset;
   uint8_t content[8];
   offset = size_id+2;
+  Serial.print("\nPatch Length is 0x");
+  Serial.println(sizeof ssb_patch_content,HEX);
    
  #ifdef DEBUGPATCH
     int widthcheck=0;
@@ -389,11 +391,20 @@ void GWDSI4735::downloadPatchFromEeprom(void)
 
     //Get the length of the patch data
     int patchLength=eepromReadInt(EEPROM_I2C_ADDR,size_id);
-
+    
+    #ifdef DEBUG
+    Serial.print("Header OK - about to transfer data, length = 0x");
+    Serial.println(patchLength,HEX);
+    #endif
+    
     // Transferring patch from EEPROM to SI4735 device
     offset = size_id+2;
     for (i = 0; i < patchLength; i += 8)
     {
+          #ifdef DEBUG
+            Serial.print("*");
+            if ((i%512==0)&(i>0)) {Serial.print(" 0x");Serial.print(i,HEX);Serial.println();}
+          #endif  
         // Reads patch content from EEPROM
         Wire.beginTransmission(EEPROM_I2C_ADDR);
         Wire.write((int)offset >> 8);   // header_size >> 8 wil be always 0 in this case
@@ -409,44 +420,21 @@ void GWDSI4735::downloadPatchFromEeprom(void)
         Wire.beginTransmission(deviceAddress);
         Wire.write(bufferAux, 8);
         Wire.endTransmission();
-
-        delay(250);
-
         waitToSend();
-        uint8_t cmd_status;
+        /*
+        uint8_t cmd_status;       
         Wire.requestFrom(deviceAddress, 1);
         cmd_status = Wire.read();
         // The SI4735 issues a status after each 8 byte transfered.Just the bit 7(CTS)should be seted.if bit 6(ERR)is seted, the system halts.
         if (cmd_status != 0x80)
         {
             Serial.println("Error in EEPROM writing data to SI4735 - Abort Patch Load");
+            return;
         }
+        */
         offset += 8;                                 // Start processing the next 8 bytes
-        delay(250);
     }
-
-    delay(50);
-}
-
-
-
-
-
-///////////////////////////////////////////////////////////////
-/**
- * @ingroup group06 Wait to send command 
- * 
- * @brief  Wait for the si473x is ready (Clear to Send (CTS) status bit have to be 1).  
- * 
- * @details This function should be used before sending any command to a SI47XX device.
- * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 63, 128
- */
-void GWDSI4735::waitToSend()
-{
-    do
-    {
-        delayMicroseconds(MIN_DELAY_WAIT_SEND_LOOP); // Need check the minimum value.
-        Wire.requestFrom(deviceAddress, 1);
-    } while (!(Wire.read() & B10000000));
+    #ifdef DEBUG
+        Serial.print("\nFinished\n");
+    #endif
 }

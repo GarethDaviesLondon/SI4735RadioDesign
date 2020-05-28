@@ -1,6 +1,13 @@
 #define DEBUG
-//#define UPLOADPATCH
-//#include "patch_init.h"
+//#define UPLOADPATCH 
+//#define EXCLUDERADIO
+
+#define USEEEPROMPATCH
+
+#ifndef USEEEPROMPATCH
+#include "patch_init.h"
+#endif
+
 
 #include "GWDSI4735.h"
 #include "Rotary.h"
@@ -10,10 +17,6 @@
 #include <EEPROM.h>
 
 GWDSI4735 si4735;
-//SI4735 si4735;
-
-
-
 
 //ROTARY ENCODER parameters
 #define ROTARYLEFT 2  //Pin the left turn on the encoder is connected to Arduino
@@ -25,6 +28,7 @@ GWDSI4735 si4735;
 #define SW4 8
 
 
+#define RESETPRESS 2000 //Milliseconds to go into a reset mode
 #define LONGPRESS 500 //Milliseconds required for a push to become a "long press"
 #define SHORTPRESS 0  //Milliseconds required for a push to become a "short press"
 #define DEBOUNCETIME 250  //Milliseconds of delay to ensure that the push-switch has debounced
@@ -63,7 +67,7 @@ int underBarY;  //This is the global Y value that set the location of the underb
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
 //Defaults for the code writing to the EEPROM
-#define SIGNATURE 0xAABB //Used to check if the EEPROM has been initialised
+#define SIGNATURE 0xAABC //Used to check if the EEPROM has been initialised
 #define SIGLOCATION 0    //Location where SIGNATURE IS STORED
 #define FREQLOCATION 4   //Location where Current Frequency is stored
 #define STEPLOCATION 8   //Location where Current Step size is stored
@@ -109,7 +113,7 @@ void setup()
   pinMode(SW3, INPUT_PULLUP);
   pinMode(SW4, INPUT_PULLUP);
   
-  Wire.setClock(10000);   // I2C Speed available
+  Wire.setClock(200000);   // I2C Speed available
   displaybanner();        //Show a banner message to the world
   testsmeter();           //Swing the smeter to check it's functioning
   readDefaults();         //check EEPROM for startup conditions
@@ -117,7 +121,11 @@ void setup()
   displayFrequency(rx);   //display the frequency on the OLED
 
 //Set up the radio
+
+#ifndef EXCLUDERADIO
   initialiseradio();
+#endif
+
   sendFrequency(rx); //send the command to the 9850 Module, adjusted up by the IF Frequency
 
 }
@@ -182,7 +190,7 @@ void setup()
 #endif //NDEF OF UPLOADPATCH
 
 ///////////////////////////////////
-bool isLongPress(int button)
+int pressLength(int button)
 {
   long int pressTime = millis();  //reord when we enter the routine, used to determine shortlongPress
   waitStopBounce(button);               //wait until the switch noise has gone
@@ -197,22 +205,27 @@ bool isLongPress(int button)
     Serial.println(pressTime);
   #endif
 
-  if (pressTime > LONGPRESS) return true;
-  return false;
+  if (pressTime > RESETPRESS) return 2;
+  if (pressTime > LONGPRESS) return 1;
+  return 0;
 }
 
 
 /////////////////////////////////////
 void doMainButtonPress(){
     
-    if (isLongPress(PUSHSWITCH)==true) //Check against the defined length of a long press
+    switch(pressLength(PUSHSWITCH))
     {
-       //Do long press operations
-    }  
-    else
-    {
-      //Do short press operations
-      changeFeqStep();
+      case 0:
+        changeFeqStep();
+        break;
+      case 1:
+        break;
+      case 2:
+        rx=DEFAULTFREQ;
+        tuneStep=DEFAULTSTEP;
+        setTuneStepIndicator();
+        displayFrequency(rx);
     }
 }
 
@@ -226,15 +239,14 @@ void doSw1ButtonPress()
 
 void doSw2ButtonPress()
 {
-  if (isLongPress(SW2)==true) //Check against the defined length of a long press
+ 
+  switch (pressLength(SW2))
   {
+  case 0:
+    cycleAGC();
+    break;
+  default:
       toggleAGC();
-  }
-  else
-  {
-    {
-      cycleAGC();
-    }
   }
 }
 
@@ -316,20 +328,7 @@ void changeFeqStep()
 }
 
 
-///////////////////////////////////////////////////////////
 
-////////
-void printStatus(void)
-{
-   Serial.print("RADIO RX Freq = ");
-   Serial.print(si4735.getFrequency());
-   Serial.print(" RSSI = ");
-   si4735.getCurrentReceivedSignalQuality();
-   Serial.print(si4735.getCurrentRSSI());
-   Serial.print(" SNR = ");
-   Serial.print(si4735.getCurrentSNR());   
-   Serial.println();
-}
 
 
 ///////////////////////////////////////////////////////////
@@ -351,7 +350,13 @@ uint8_t rssi = 0;
 //////////////////////////////////////////////////////
 void initialiseradio()
 {
-    int16_t si4735Addr = si4735.getDeviceI2CAddress(RESET_PIN);
+  
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no initialisation");
+return;
+#endif
+
+  int16_t si4735Addr = si4735.getDeviceI2CAddress(RESET_PIN);
   if ( si4735Addr == 0 ) {
     Serial.println("Si473X not found!");
     Serial.flush();
@@ -365,7 +370,8 @@ void initialiseradio()
   si4735.setup(RESET_PIN, AM_FUNCTION);
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
-  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,USB);
+  //si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,USB);
+  si4735.setSSB(100,30000,getCurrentFreq(),1,USB);
   displayFrequency(rx);
   si4735.setVolume(60);
   Serial.print("RX Freq = ");
@@ -374,7 +380,31 @@ void initialiseradio()
   }
 }
 
+///////////////////////////////////////////////////////////
+
+////////
+
+void printStatus(void)
+{
+
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no status information");
+return;
+#endif
+
+   Serial.print("RADIO RX Freq = ");
+   Serial.print(si4735.getFrequency());
+   Serial.print(" RSSI = ");
+   si4735.getCurrentReceivedSignalQuality();
+   Serial.print(si4735.getCurrentRSSI());
+   Serial.print(" SNR = ");
+   Serial.print(si4735.getCurrentSNR());   
+   Serial.println();
+}
 ////////////////////////////////////////////////////////////////////////
+
+
+
 uint16_t getCurrentFreq(void)
 {
   uint16_t newval = rx/1000;
@@ -386,10 +416,20 @@ uint16_t getCurrentFreq(void)
 
 void loadSSB()
 {
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no load SSB");
+return;
+#endif
+
   si4735.queryLibraryId(); // Is it really necessary here? I will check it.
   si4735.patchPowerUp();
   delay(50);
-  //si4735.downloadPatch(ssb_patch_content, sizeof ssb_patch_content);
+#ifdef  USEEEPROMPATCH
+  si4735.downloadPatchFromEeprom();
+#else
+  si4735.downloadPatch(ssb_patch_content, sizeof ssb_patch_content);
+#endif
+
   // Parameters
   // AUDIOBW - SSB Audio bandwidth; 0 = 1.2KHz (default); 1=2.2KHz; 2=3KHz; 3=4KHz; 4=500Hz; 5=1KHz;
   // SBCUTFLT SSB - side band cutoff filter for band passand low pass filter ( 0 or 1)
@@ -403,6 +443,11 @@ void loadSSB()
 //////////////////////////////////////////////////////
 
 void sendFrequency(long int frequency) {
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no sending frequency");
+return;
+#endif
+
   if (abs(bfo)>BFORANGE)
   {
     bfo=0;
@@ -415,6 +460,12 @@ void sendFrequency(long int frequency) {
 
 void toggleAGC(void)
 {
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no toggle AGC");
+return;
+#endif
+
+  
     disableAgc = !disableAgc;
     // siwtch on/off ACG; AGC Index = 0. It means Minimum attenuation (max gain)
     si4735.setAutomaticGainControl(disableAgc, currentAGCAtt);
@@ -425,6 +476,12 @@ void toggleAGC(void)
 
 void cycleAGC (void)
 {
+
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no cycle AGC");
+return;
+#endif
+
     if (currentAGCAtt == 0)
         currentAGCAtt = 1;
       else if (currentAGCAtt == 1)
@@ -441,6 +498,12 @@ void cycleAGC (void)
 
 void cycleBandwidth(void)
 {
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no cycle Bandwidth");
+return;
+#endif
+
+  
   bandwidthIdx++;
     if (bandwidthIdx > 5)
       bandwidthIdx = 0;

@@ -23,7 +23,6 @@ class GWDSI4735 : public SI4735 {
 
     void GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  * pData, uint8_t blockSize);
     void GWDSI4735::downloadPatchFromEeprom(void);
-    void GWDSI4735::waitToSend();
   
   protected:
 
