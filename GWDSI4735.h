@@ -1,5 +1,5 @@
 #include "SI4735.h"
-#define UPLOADPATCH
+//#define UPLOADPATCH
 
 
 typedef union {

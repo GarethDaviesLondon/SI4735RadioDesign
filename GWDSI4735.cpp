@@ -1,6 +1,6 @@
 #include "GWDSI4735.h"
 
-#define UPLOADPATCH
+//#define UPLOADPATCH
 
 //////////////////////////////////
 //These were used to debug the programming of the EEPROM when tracking a particulary obscure bug....
