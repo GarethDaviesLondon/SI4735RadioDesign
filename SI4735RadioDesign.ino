@@ -249,6 +249,7 @@ void doSw2ButtonPress()
 
 void doSw3ButtonPress()
 {
+  swapSSB();
 }
 
 void doSw4ButtonPress()
@@ -342,6 +343,7 @@ bool avc_en = true;
 
 uint8_t currentAGCAtt = 0;
 uint8_t rssi = 0;
+uint8_t usblsb = LSB;
 
 
 //////////////////////////////////////////////////////
@@ -367,8 +369,8 @@ return;
   si4735.setup(RESET_PIN, AM_FUNCTION);
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
-  //si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,USB);
-  si4735.setSSB(100,30000,14015,1,USB);
+  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,USB);
+  //si4735.setSSB(100,30000,14015,1,USB);
   displayFrequency(rx);
   si4735.setVolume(60);
   Serial.print("RX Freq = ");
@@ -454,6 +456,18 @@ return;
   si4735.setSSBBfo(bfo);
 }
 
+////////////
+void swapSSB()
+{
+  
+#ifdef EXCLUDERADIO
+Serial.println("Radio disabled no swapSSB");
+return;
+#endif
+ if (usblsb==LSB){usblsb=USB;}else{usblsb=USB;}
+  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,usblsb);
+}
+
 ///////////////////////////////////////////////////////////////
 
 void toggleAGC(void)
@@ -531,13 +545,11 @@ void testsmeter(void)
   for (int a=0;a<255;a++)
   {
       analogWrite(9,a);
-      delay(10);
   }
-  delay(300);
+  delay(100);
   for (int a=255;a>0;a--)
   {
       analogWrite(9,a);
-      delay(10);
   }
  }
 
