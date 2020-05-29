@@ -142,7 +142,10 @@ void setup()
   {
     freqChanged=true; //used to check the EEPROM writing            
     lastMod=millis(); //used to check the EEPROM writing
+    
+#ifdef DEBUG
     printStatus();
+#endif
     
     //Increment or decrement the frequency by the tuning step depending on direction of movement.
     if (result == DIR_CW) {
@@ -233,13 +236,22 @@ void doMainButtonPress(){
 ///////////////////////////////////////////////////////////////
 void doSw1ButtonPress()
 {
-    waitStopBounce(SW1);
-    cycleBandwidth();
+    
+  #ifdef DEBUG
+    Serial.println("Button 1 Press");
+  #endif
+  switch (pressLength(SW3))
+  {
+    default:    cycleBandwidth();
+  }
 }
 
 void doSw2ButtonPress()
 {
- 
+  
+  #ifdef DEBUG
+    Serial.println("Button 2 Press");
+  #endif
   switch (pressLength(SW2))
   {
   case 0:
@@ -252,21 +264,48 @@ void doSw2ButtonPress()
 
 void doSw3ButtonPress()
 {
-  swapSSB();
+
+  #ifdef DEBUG
+    Serial.println("Button 3 Press");
+  #endif
+  switch (pressLength(SW3))
+  {
+    default:
+    swapSSB();
+  }
 }
 
 void doSw4ButtonPress()
 {
+  
+  #ifdef DEBUG
+    Serial.println("Button 4 Press");
+  #endif
+  
   switch (pressLength(SW4))
   {
   case 0:
-    if (vfoselection==1) {rx=rxa; vfoselection=0;} //Toggla A or B
-    else if (vfoselection==0) {rx=rxb;vfoselection=1;}
+    swapVFO();
     break;
   default:
-      rxa=rxb=rx;                   //A=B function
+      equalVFO();                   //A=B function
   }
   displayFrequency(rx);
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void swapVFO()
+{
+   if (vfoselection==1) {rx=rxa; vfoselection=0;} //Toggla A or B
+    else if (vfoselection==0) {rx=rxb;vfoselection=1;} 
+}
+
+//////////////////////////////////////////////////////////////////////////
+
+void equalVFO()
+{
+   rxa=rxb=rx;                   //A=B function
 }
 
 //////////////////////////////////////////////////////////////////////////
