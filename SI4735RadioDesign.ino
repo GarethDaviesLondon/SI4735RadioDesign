@@ -1,4 +1,4 @@
-#define DEBUG
+//#define DEBUG
 //#define UPLOADPATCH 
 //#define EXCLUDERADIO
 
@@ -86,7 +86,7 @@ int underBarY;  //This is the global Y value that set the location of the underb
 
 long tuneStep;        //global for the current increment - enables it to be changed in interrupt routines
 long ifFreq = IFFREQ+IFFERROR; //global for the receiver IF. Made variable so it could be manipulated by the CLI for instance
-double rxa,rxb,rx;            //global for the current receiver frequency
+double rxa,rxb,rx,rxlast;        //global for the current receiver frequency
 int vfoselection;             //global vfo 0=a,1=b (others might be memory functions later)
 long bfo = 0;
 
@@ -127,7 +127,8 @@ void setup()
 //Set up the radio
 
 #ifndef EXCLUDERADIO
-  initialiseradio();
+   displaytext("Loading","External EEPROM");
+   initialiseradio();
 #endif
 //while(1);
 }
@@ -234,19 +235,22 @@ void doMainButtonPress(){
 
 
 ///////////////////////////////////////////////////////////////
-void doSw1ButtonPress()
+void doSw1ButtonPress() //BLUE
 {
     
   #ifdef DEBUG
     Serial.println("Button 1 Press");
   #endif
-  switch (pressLength(SW3))
+  switch (pressLength(SW1))
   {
-    default:    cycleBandwidth();
+    case 0:    cycleBandwidth();
+               break;
+    case 1:    displaytext ( si4735.getFrequency(),bfo );
+               break;
   }
 }
 
-void doSw2ButtonPress()
+void doSw2ButtonPress() //GREEN
 {
   
   #ifdef DEBUG
@@ -298,7 +302,9 @@ void doSw4ButtonPress()
 void swapVFO()
 {
    if (vfoselection==1) {rx=rxa; vfoselection=0;} //Toggla A or B
-    else if (vfoselection==0) {rx=rxb;vfoselection=1;} 
+      else if (vfoselection==0) {rx=rxb;vfoselection=1;} 
+   displayFrequency(rx);
+   sendFrequency(rx,true);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -420,14 +426,12 @@ return;
   si4735.setup(RESET_PIN, AM_FUNCTION);
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
-  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,USB);
-  //si4735.setSSB(100,30000,14015,1,USB);
+  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,10000,1,USB); //starts up at 10Mhz.
+  sendFrequency(rx,true);   //set to the correct frequency
   displayFrequency(rx);
   si4735.setVolume(60);
   Serial.print("RX Freq = ");
   Serial.println(si4735.getFrequency());
-  si4735.setFrequency(14015);
-  //si4735.setFrequency(getCurrentFreq());
   }
 }
 
@@ -493,18 +497,46 @@ return;
 
 //////////////////////////////////////////////////////
 
+void sendFrequency(long int frequency, bool flag)
+{
+  if (flag==true) rxlast=0; //Makes sure that the next call will reset the BFO & VFO Combination.
+  sendFrequency(frequency);  
+}
+
 void sendFrequency(long int frequency) {
 #ifdef EXCLUDERADIO
 Serial.println("Radio disabled no sending frequency");
 return;
 #endif
 
-  if (abs(bfo)>BFORANGE)
+
+  if (abs(frequency-rxlast)>BFORANGE) //If we have a big jump in frequency
   {
-    bfo=0;
-    si4735.setFrequency(getCurrentFreq());
-  } 
-  si4735.setSSBBfo(bfo);
+    bfo=frequency-((long)getCurrentFreq()*1000);
+    si4735.setFrequency(getCurrentFreq());;
+    si4735.setSSBBfo(bfo);
+#ifdef DEBUG
+    Serial.print("Recalibrate Last = ");
+    Serial.print(rxlast);
+    Serial.print("Requested = ");
+    Serial.println(frequency);
+#endif
+    rxlast=frequency;
+  }
+  else
+  {
+    if (abs(bfo)>BFORANGE)
+    {
+      bfo=0;
+      si4735.setFrequency(getCurrentFreq());
+      rxlast=frequency;
+#ifdef DEBUG
+      Serial.println("BFO Reset");
+#endif
+    } 
+    si4735.setSSBBfo(bfo);
+  }
+
 }
 
 ////////////
@@ -584,6 +616,32 @@ return;
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
+
+void displaytext(char *line1,char *line2)
+{
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1); // Draw 1X-scale text
+  display.setCursor(0, 0);
+  display.println(line1);
+  display.setCursor(BANNERX, BANNERY);
+  display.setTextSize(1); // Draw 1X-scale text
+  display.println(line2);
+  display.display(); 
+}
+
+void displaytext(int line1,int line2)
+{
+  display.clearDisplay();
+  display.setTextColor(SSD1306_WHITE);
+  display.setTextSize(1); // Draw 1X-scale text
+  display.setCursor(0, 0);
+  display.println(line1);
+  display.setCursor(BANNERX, BANNERY);
+  display.setTextSize(1); // Draw 1X-scale text
+  display.println(line2);
+  display.display(); 
+}
 
 void displaybanner(void)
 {
@@ -668,7 +726,7 @@ void displayFrequency(long int freq)
   if (usblsb==USB) display.print("USB "); else display.print("LSB ");
   if (disableAgc==0) display.print("OFF"); else display.print(currentAGCAtt);
   display.print(" ");
-  display.print(bandwitdth[bandwidthIdx]);
+  display.print((char *)bandwitdth[bandwidthIdx]);
 #endif
 
 
