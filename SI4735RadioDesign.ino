@@ -49,7 +49,8 @@ int underBarY;  //This is the global Y value that set the location of the underb
 //Just raise a pint in my direction when you tell everyone that you wrote this :-)
 
 //#define DISPLAYIFFREQUENCY //This displays the IFFREQ. 
-#define USEBANNER //bit of fun with a banner message, comment out if you want to turn it off
+//#define USEBANNER //bit of fun with a banner message, comment out if you want to turn it off
+#define DISPLAYRXSTATUS //show USB/AGC Status etc.
 #define BANNERMESSAGE "SI4735 RADIO V1.0"
 #define BANNERX 0
 #define BANNERY 25
@@ -69,8 +70,11 @@ int underBarY;  //This is the global Y value that set the location of the underb
 //Defaults for the code writing to the EEPROM
 #define SIGNATURE 0xAABC //Used to check if the EEPROM has been initialised
 #define SIGLOCATION 0    //Location where SIGNATURE IS STORED
-#define FREQLOCATION 4   //Location where Current Frequency is stored
+#define FREQLOCATION 4   //Location where A VFO Frequency is stored
 #define STEPLOCATION 8   //Location where Current Step size is stored
+#define BSTEPLOCATION 12   //Location where B VFO Step size is stored
+#define AORBSELECTION 16   //Location where A/B selection is stored
+
 
 #define DEFAULTFREQ 7000000 //Set default frequency to 7Mhz. Only used when EEPROM not initialised
 #define DEFAULTSTEP 1000    //Set default tuning step size to 1Khz. Only used when EEPROM not initialised
@@ -82,7 +86,8 @@ int underBarY;  //This is the global Y value that set the location of the underb
 
 long tuneStep;        //global for the current increment - enables it to be changed in interrupt routines
 long ifFreq = IFFREQ+IFFERROR; //global for the receiver IF. Made variable so it could be manipulated by the CLI for instance
-double rx;            //global for the current receiver frequency
+double rxa,rxb,rx;            //global for the current receiver frequency
+int vfoselection;             //global vfo 0=a,1=b (others might be memory functions later)
 long bfo = 0;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); //global handle to the display
@@ -115,7 +120,6 @@ void setup()
   
   Wire.setClock(200000);   // I2C Speed available
   displaybanner();        //Show a banner message to the world
-  testsmeter();           //Swing the smeter to check it's functioning
   readDefaults();         //check EEPROM for startup conditions
   setTuneStepIndicator(); //set up the X&Y for the step underbar 
   displayFrequency(rx);   //display the frequency on the OLED
@@ -147,12 +151,14 @@ void setup()
         if (rx>MAXFREQ) {rx = MAXFREQ;}
         displayFrequency(rx);
         sendFrequency(rx);
+        if (vfoselection==0) rxa=rx; else if (vfoselection==1) rxb=rx;
       } else {
         rx-=tuneStep;
         bfo-=tuneStep;
         if (rx<MINFREQ) {rx = MINFREQ;}
         displayFrequency(rx);
-        sendFrequency(rx);      
+        sendFrequency(rx);
+        if (vfoselection==0) rxa=rx; else if (vfoselection==1) rxb=rx;
       }
   }
   
@@ -219,10 +225,7 @@ void doMainButtonPress(){
       case 1:
         break;
       case 2:
-        rx=DEFAULTFREQ;
-        tuneStep=DEFAULTSTEP;
-        setTuneStepIndicator();
-        displayFrequency(rx);
+        resetToDefaults();
     }
 }
 
@@ -254,7 +257,16 @@ void doSw3ButtonPress()
 
 void doSw4ButtonPress()
 {
-
+  switch (pressLength(SW4))
+  {
+  case 0:
+    if (vfoselection==1) {rx=rxa; vfoselection=0;} //Toggla A or B
+    else if (vfoselection==0) {rx=rxb;vfoselection=1;}
+    break;
+  default:
+      rxa=rxb=rx;                   //A=B function
+  }
+  displayFrequency(rx);
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -464,8 +476,9 @@ void swapSSB()
 Serial.println("Radio disabled no swapSSB");
 return;
 #endif
- if (usblsb==LSB){usblsb=USB;}else{usblsb=USB;}
-  si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,usblsb);
+ if (usblsb==LSB) usblsb=USB; else usblsb=USB;
+ si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,usblsb);
+ displayFrequency(rx);
 }
 
 ///////////////////////////////////////////////////////////////
@@ -481,6 +494,7 @@ return;
     disableAgc = !disableAgc;
     // siwtch on/off ACG; AGC Index = 0. It means Minimum attenuation (max gain)
     si4735.setAutomaticGainControl(disableAgc, currentAGCAtt);
+    displayFrequency(rx);
 }
 
 
@@ -505,6 +519,7 @@ return;
       else
         currentAGCAtt = 0;
       si4735.setAutomaticGainControl(1, currentAGCAtt);
+      displayFrequency(rx);
 }
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -525,33 +540,8 @@ return;
       si4735.setSBBSidebandCutoffFilter(0);
     else
       si4735.setSBBSidebandCutoffFilter(1);
+ displayFrequency(rx);
 }
-
-//////////////////////////////////////////////////////////////////////////
-
-void updatesmeter(void)
-{
-   int sigStrength;
-   si4735.getCurrentReceivedSignalQuality();
-   sigStrength=si4735.getCurrentRSSI();
-   analogWrite(9,sigStrength*2); 
-}
-
-//////////////////////////////////////////////////////////////////////////
-
-void testsmeter(void)
-{
-  /*test analogue Meter*/
-  for (int a=0;a<255;a++)
-  {
-      analogWrite(9,a);
-  }
-  delay(100);
-  for (int a=255;a>0;a--)
-  {
-      analogWrite(9,a);
-  }
- }
 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -619,6 +609,7 @@ void displayFrequency(long int freq)
   display.print(ones);
   display.setCursor(underBarX, underBarY);
   display.print("-");
+
 #ifdef USEBANNER
   display.setCursor(BANNERX, BANNERY);
   display.print(BANNERMESSAGE);
@@ -631,6 +622,17 @@ void displayFrequency(long int freq)
   display.print(".");
   display.print(ifFreq % 1000);
 #endif
+
+#ifdef DISPLAYRXSTATUS
+  display.setCursor(BANNERX, BANNERY);
+  if (vfoselection==0) display.print("A "); else display.print("B ");
+  if (usblsb==USB) display.print("USB "); else display.print("LSB ");
+  if (disableAgc==0) display.print("OFF"); else display.print(currentAGCAtt);
+  display.print(" ");
+  display.print(bandwitdth[bandwidthIdx]);
+#endif
+
+
   display.display();      // Show initial text
 }
 
@@ -670,16 +672,24 @@ void waitStopBounce(int pin)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
+void resetToDefaults()
+{
+        rxa=rxb=rx=DEFAULTFREQ;
+        vfoselection=0;
+        tuneStep=DEFAULTSTEP;
+        setTuneStepIndicator();
+        displayFrequency(rx);
+        
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////////
+
 void readDefaults()
 {
   if (readEPROM(SIGLOCATION) != SIGNATURE)
     {
-       //Means that there has not been any initialised sequence stored in EEPROM yet
-       //Comes from a virgin processor, or a change in the SIGNATURE
-        rx=DEFAULTFREQ;
-        tuneStep=DEFAULTSTEP;
-        setTuneStepIndicator();
-        displayFrequency(rx);
+       resetToDefaults();
     }
     else
     {
@@ -691,8 +701,12 @@ void readDefaults()
 
 void readEPROMVals()
 {
-      rx=readEPROM(FREQLOCATION);
+      rxa=readEPROM(FREQLOCATION);
+      rxb=readEPROM(BSTEPLOCATION);
+      vfoselection=readEPROM(AORBSELECTION);
       tuneStep=readEPROM(STEPLOCATION);
+      rx=rxa;
+      if (vfoselection==1) rx=rxb;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -700,7 +714,9 @@ void readEPROMVals()
 void commitEPROMVals()
 {
       writeEPROM(SIGLOCATION,SIGNATURE);
-      writeEPROM(FREQLOCATION,rx);
+      writeEPROM(FREQLOCATION,rxa);
+      writeEPROM(AORBSELECTION,vfoselection);
+      writeEPROM(BSTEPLOCATION,rxb);
       writeEPROM(STEPLOCATION,tuneStep);
 }
 
