@@ -260,13 +260,13 @@ void doSw4ButtonPress()
   switch (pressLength(SW4))
   {
   case 0:
-    if (vfoselection==0) {rx=rxa;} //Toggla A or B
-    else if (vfoselection==1) {rx=rxb;}
+    if (vfoselection==1) {rx=rxa; vfoselection=0;} //Toggla A or B
+    else if (vfoselection==0) {rx=rxb;vfoselection=1;}
     break;
   default:
       rxa=rxb=rx;                   //A=B function
   }
-
+  displayFrequency(rx);
 }
 
 //////////////////////////////////////////////////////////////////////////
