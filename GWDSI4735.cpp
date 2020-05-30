@@ -4,7 +4,7 @@
 
 //////////////////////////////////
 //These were used to debug the programming of the EEPROM when tracking a particulary obscure bug....
-#define DEBUG
+//#define DEBUG
 //#define DEBUGDATA
 //#define DEBUGHEADER
 //#define DEBUGHEADERDATA
