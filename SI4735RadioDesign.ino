@@ -26,7 +26,8 @@ GWDSI4735 si4735;
 #define SW2 6
 #define SW3 7
 #define SW4 8
-
+#define METEROUT 9
+#define SMETERCALIBRATE 2
 
 #define RESETPRESS 2000 //Milliseconds to go into a reset mode
 #define LONGPRESS 500 //Milliseconds required for a push to become a "long press"
@@ -89,6 +90,7 @@ long ifFreq = IFFREQ+IFFERROR; //global for the receiver IF. Made variable so it
 double rxa,rxb,rx,rxlast;        //global for the current receiver frequency
 int vfoselection;             //global vfo 0=a,1=b (others might be memory functions later)
 long bfo = 0;
+bool showSMeter=false;
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET); //global handle to the display
 bool fast = false;
@@ -138,6 +140,7 @@ void setup()
 
  void loop ()
  {
+  if (showSMeter==true) updateSMeter();
   int result = r.process();       //This checks to see if there has been an event on the rotary encoder.
   if (result)
   {
@@ -266,16 +269,19 @@ void doSw2ButtonPress() //GREEN
   }
 }
 
-void doSw3ButtonPress()
+void doSw3ButtonPress() //White
 {
-
   #ifdef DEBUG
     Serial.println("Button 3 Press");
   #endif
   switch (pressLength(SW3))
   {
+    case 0: swapSSB();
+            break;
     default:
-    swapSSB();
+            if (showSMeter) displayMeterValue(0); //turn off the PWM output!
+            showSMeter=!showSMeter;
+            break;
   }
 }
 
@@ -382,7 +388,10 @@ void changeFeqStep()
   waitStopBounce(PUSHSWITCH);                            
 }
 
-
+void displayMeterValue(byte value)
+{
+  analogWrite(METEROUT,value);
+}
 
 
 
@@ -458,6 +467,11 @@ return;
 }
 ////////////////////////////////////////////////////////////////////////
 
+void updateSMeter()
+{
+  si4735.getCurrentReceivedSignalQuality();
+  displayMeterValue(si4735.getCurrentRSSI()*SMETERCALIBRATE);
+}
 
 
 uint16_t getCurrentFreq(void)
@@ -547,8 +561,8 @@ void swapSSB()
 Serial.println("Radio disabled no swapSSB");
 return;
 #endif
- if (usblsb==LSB) usblsb=USB; else usblsb=USB;
- si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,getCurrentFreq(),1,usblsb);
+ if (usblsb==LSB) usblsb=USB; else usblsb=LSB;
+ si4735.setSSB(usblsb);
  displayFrequency(rx);
 }
 
