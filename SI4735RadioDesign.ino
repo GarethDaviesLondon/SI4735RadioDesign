@@ -26,9 +26,11 @@ GWDSI4735 si4735;
 #define SW2 6
 #define SW3 7
 #define SW4 8
-#define METEROUT 9
-#define SMETERCALIBRATE 5
-#define SMETERUPDATERATE 50 //Milliseconds between S-Meter Updates
+
+#define RCLCKPIN 9
+//#define METEROUT 9
+//#define SMETERCALIBRATE 5
+//#define SMETERUPDATERATE 50 //Milliseconds between S-Meter Updates
 
 long lastSMeterUpdate = 0;
 
@@ -84,7 +86,7 @@ int underBarY;  //This is the global Y value that set the location of the underb
 #define DEFAULTSTEP 1000    //Set default tuning step size to 1Khz. Only used when EEPROM not initialised
 #define UPDATEDELAY 5000    //When tuning you don't want to be constantly writing to the EEPROM. So wait
                             //For this period of stability before storing frequency and step size
-#define BFORANGE 16000      //Hz before resetting maintuning on the SI4735 BFO
+#define BFORANGE 10000      //Hz before resetting maintuning on the SI4735 BFO
                                                   
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -108,7 +110,7 @@ bool freqChanged = false;  //This is used to know if there has been an update, i
 void setup()
 {
   Serial.begin(9600);
-  
+  Serial.println(millis());
   while (!Serial);
   
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) 
@@ -116,6 +118,17 @@ void setup()
     Serial.println(F("SSD1306 failed"));
     for (;;); // Don't proceed, loop forever
   }
+
+//GENERATE 4MHZ Clock Signal
+  pinMode (RCLCKPIN, OUTPUT); 
+  TCCR1A = 0;
+  TCCR1B = 0;
+  TCNT1  = 0;
+  OCR1A = 1;   // toggle after each cycle
+  TCCR1A |= (1 << COM1A0);   // Toggle OC1A on Compare Match.
+  TCCR1B |= (1 << WGM12);    // CTC mode
+  TCCR1B |= (1 << CS10);     // clock on, no pre-scaler
+/////
 
   pinMode(PUSHSWITCH, INPUT_PULLUP);
   pinMode(SW1, INPUT_PULLUP);
@@ -136,6 +149,7 @@ void setup()
    initialiseradio();
 #endif
 //while(1);
+Serial.println(millis());
 }
 
 
@@ -146,11 +160,13 @@ void setup()
   lastMod=millis();  //used to check the EEPROM writing
   if (showSMeter==true) 
   {
+    /*
       if (millis()>lastSMeterUpdate+SMETERUPDATERATE)
       {
         updateSMeter();
         lastSMeterUpdate=millis();
       }
+      */
   }
   int result = r.process();       //This checks to see if there has been an event on the rotary encoder.
   if (result)
@@ -290,7 +306,9 @@ void doSw3ButtonPress() //White
     case 0: swapSSB();
             break;
     default:
+    /*
             if (showSMeter) displayMeterValue(0); //turn off the PWM output!
+            */
             showSMeter=!showSMeter;
             break;
   }
@@ -399,11 +417,12 @@ void changeFeqStep()
   waitStopBounce(PUSHSWITCH);                            
 }
 
+/*
 void displayMeterValue(byte value)
 {
   analogWrite(METEROUT,value);
 }
-
+*/
 
 
 ///////////////////////////////////////////////////////////
@@ -447,7 +466,9 @@ return;
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
   si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,10000,1,USB); //starts up at 10Mhz.
+  delay(100);
   sendFrequency(rx,true);   //set to the correct frequency
+  delay(100);
   displayFrequency(rx);
   si4735.setVolume(60);
   Serial.print("RX Freq = ");
@@ -478,11 +499,13 @@ return;
 }
 ////////////////////////////////////////////////////////////////////////
 
+/*
 void updateSMeter()
 {
   si4735.getCurrentReceivedSignalQuality();
   displayMeterValue(si4735.getCurrentRSSI()*SMETERCALIBRATE);
 }
+*/
 
 
 uint16_t getCurrentFreq(void)
@@ -539,7 +562,9 @@ return;
   {
     bfo=frequency-((long)getCurrentFreq()*1000);
     si4735.setFrequency(getCurrentFreq());;
+    delay(100);
     si4735.setSSBBfo(bfo);
+    delay(100);
 #ifdef DEBUG
     Serial.print("Recalibrate Last = ");
     Serial.print(rxlast);
@@ -554,12 +579,14 @@ return;
     {
       bfo=0;
       si4735.setFrequency(getCurrentFreq());
+      delay(100);
       rxlast=frequency;
 #ifdef DEBUG
       Serial.println("BFO Reset");
 #endif
     } 
     si4735.setSSBBfo(bfo);
+    delay(100);
   }
 
 }
