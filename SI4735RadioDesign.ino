@@ -27,7 +27,10 @@ GWDSI4735 si4735;
 #define SW3 7
 #define SW4 8
 #define METEROUT 9
-#define SMETERCALIBRATE 2
+#define SMETERCALIBRATE 5
+#define SMETERUPDATERATE 50 //Milliseconds between S-Meter Updates
+
+long lastSMeterUpdate = 0;
 
 #define RESETPRESS 2000 //Milliseconds to go into a reset mode
 #define LONGPRESS 500 //Milliseconds required for a push to become a "long press"
@@ -140,12 +143,20 @@ void setup()
 
  void loop ()
  {
-  if (showSMeter==true) updateSMeter();
+  lastMod=millis();  //used to check the EEPROM writing
+  if (showSMeter==true) 
+  {
+      if (millis()>lastSMeterUpdate+SMETERUPDATERATE)
+      {
+        updateSMeter();
+        lastSMeterUpdate=millis();
+      }
+  }
   int result = r.process();       //This checks to see if there has been an event on the rotary encoder.
   if (result)
   {
     freqChanged=true; //used to check the EEPROM writing            
-    lastMod=millis(); //used to check the EEPROM writing
+
     
 #ifdef DEBUG
     printStatus();
