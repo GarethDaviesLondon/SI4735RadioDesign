@@ -1,4 +1,4 @@
-//#define DEBUG
+#define DEBUG
 //#define UPLOADPATCH 
 //#define EXCLUDERADIO
 
@@ -31,8 +31,7 @@ GWDSI4735 si4735;
 //#define METEROUT 9
 //#define SMETERCALIBRATE 5
 //#define SMETERUPDATERATE 50 //Milliseconds between S-Meter Updates
-
-long lastSMeterUpdate = 0;
+//long lastSMeterUpdate = 0;
 
 #define RESETPRESS 2000 //Milliseconds to go into a reset mode
 #define LONGPRESS 500 //Milliseconds required for a push to become a "long press"
@@ -110,7 +109,10 @@ bool freqChanged = false;  //This is used to know if there has been an update, i
 void setup()
 {
   Serial.begin(9600);
+#ifdef DEBUG
+  Serial.print("Start Setup ms ");
   Serial.println(millis());
+#endif
   while (!Serial);
   
   if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) 
@@ -118,6 +120,7 @@ void setup()
     Serial.println(F("SSD1306 failed"));
     for (;;); // Don't proceed, loop forever
   }
+
 
 //GENERATE 4MHZ Clock Signal
   pinMode (RCLCKPIN, OUTPUT); 
@@ -128,8 +131,7 @@ void setup()
   TCCR1A |= (1 << COM1A0);   // Toggle OC1A on Compare Match.
   TCCR1B |= (1 << WGM12);    // CTC mode
   TCCR1B |= (1 << CS10);     // clock on, no pre-scaler
-/////
-
+  
   pinMode(PUSHSWITCH, INPUT_PULLUP);
   pinMode(SW1, INPUT_PULLUP);
   pinMode(SW2, INPUT_PULLUP);
@@ -149,7 +151,10 @@ void setup()
    initialiseradio();
 #endif
 //while(1);
+#ifdef DEBUG
+Serial.print("Finished Setup ms ");
 Serial.println(millis());
+#endif
 }
 
 
@@ -157,25 +162,29 @@ Serial.println(millis());
 
  void loop ()
  {
-  lastMod=millis();  //used to check the EEPROM writing
+ 
+ /*
   if (showSMeter==true) 
   {
-    /*
+    
       if (millis()>lastSMeterUpdate+SMETERUPDATERATE)
       {
         updateSMeter();
         lastSMeterUpdate=millis();
       }
-      */
   }
+  */
+  
   int result = r.process();       //This checks to see if there has been an event on the rotary encoder.
   if (result)
   {
-    freqChanged=true; //used to check the EEPROM writing            
-
-    
+    freqChanged=true; //used to check the EEPROM writing
+    lastMod=millis();  //used to check the EEPROM writing
+            
 #ifdef DEBUG
     printStatus();
+    Serial.print("rotary at  ms ");
+    Serial.println(millis());
 #endif
     
     //Increment or decrement the frequency by the tuning step depending on direction of movement.
@@ -222,7 +231,6 @@ Serial.println(millis());
     commitEPROMVals();
     freqChanged=false;
   }
-
  }
 #endif //NDEF OF UPLOADPATCH
 

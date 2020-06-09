@@ -90,8 +90,13 @@
 // See  Si47XX PROGRAMMING GUIDE AN332; page 125
 #define DIGITAL_OUTPUT_FORMAT 0x0102                // Configure digital audio outputs.
 #define DIGITAL_OUTPUT_SAMPLE_RATE 0x0104           // Configure digital audio output sample rate
-#define REFCLK_FREQ 0x0201                          //Sets frequency of reference clock in Hz. The range is 31130 to 34406 Hz, or 0 to disable the AFC. Default is 32768 Hz.
-#define REFCLK_PRESCALE 0x0202                      // Sets the prescaler value for RCLK input.
+//GWD
+//#define REFCLK_FREQ 0x0201                          //Sets frequency of reference clock in Hz. The range is 31130 to 34406 Hz, or 0 to disable the AFC. Default is 32768 Hz.
+//#define REFCLK_PRESCALE 0x0202                      // Sets the prescaler value for RCLK input.
+#define REFCLK_FREQ 32000                          //Sets frequency of reference clock in Hz. The range is 31130 to 34406 Hz, or 0 to disable the AFC. Default is 32768 Hz.
+#define REFCLK_PRESCALE 125                      // Sets the prescaler value for RCLK input.
+
+
 #define AM_DEEMPHASIS 0x3100                        // Sets deemphasis time constant. Can be set to 50 μs. Deemphasis is disabled by default.
 #define AM_CHANNEL_FILTER 0x3102                    // Selects the bandwidth of the channel filter for AM reception. The choices are 6, 4, 3, 2, 2.5, 1.8, or 1 (kHz). The default bandwidth is 2 kHz.
 #define AM_AUTOMATIC_VOLUME_CONTROL_MAX_GAIN 0x3103 // Sets the maximum gain for automatic volume control.

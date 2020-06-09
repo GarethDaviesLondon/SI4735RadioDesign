@@ -2754,7 +2754,9 @@ void SI4735::ssbPowerUp()
     powerUp.arg.CTSIEN = 0;          // 1 -> Interrupt anabled;
     powerUp.arg.GPO2OEN = 0;         // 1 -> GPO2 Output Enable;
     powerUp.arg.PATCH = 0;           // 0 -> Boot normally;
-    powerUp.arg.XOSCEN = 1;          // 1 -> Use external crystal oscillator;
+    //powerUp.arg.XOSCEN = 1;          // 1 -> Use external crystal oscillator;
+    //GWD
+    powerUp.arg.XOSCEN = 0;           // Use External Clock
     powerUp.arg.FUNC = 1;            // 0 = FM Receive; 1 = AM/SSB (LW/MW/SW) Receiver.
     powerUp.arg.OPMODE = 0b00000101; // 0x5 = 00000101 = Analog audio outputs (LOUT/ROUT).
 }
