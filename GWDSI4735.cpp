@@ -441,13 +441,13 @@ void GWDSI4735::downloadPatchFromEeprom(void)
 
 ///////////////////////////////
 
-
+/*
 void GWDSI4735::ssbPowerUp()
 {
     waitToSend();
     Wire.beginTransmission(deviceAddress);
     Wire.write(POWER_UP);
-//    Wire.write(0b00010001); // Set to AM/SSB, disable interrupt; disable GPO2OEN; boot normaly; enable External Crystal Oscillator  .
+/   Wire.write(0b00010001); // Set to AM/SSB, disable interrupt; disable GPO2OEN; boot normaly; enable External Crystal Oscillator  .
     Wire.write(0b00010000); // Set to AM/SSB, disable interrupt; disable GPO2OEN; boot normaly; enable External Crystal Oscillator  .
     Wire.write(0b00000101); // Set to Analog Line Input.
     Wire.endTransmission();
@@ -484,3 +484,4 @@ int GWDSI4735::setClockFrequency(long int Hz)
 //#define REFCLK_PRESCALE 0x0202                      // Sets the prescaler value for RCLK input.
 //#define AM_MODE_AFC_SW_PULL_IN_RANGE 0x3104         // Sets the SW AFC pull-in range.
 //#define AM_MODE_AFC_SW_LOCK_IN_RANGE 0x3105         // Sets the SW AFC lock-in.
+*/

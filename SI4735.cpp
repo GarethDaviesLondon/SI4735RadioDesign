@@ -39,7 +39,7 @@
  * @copyright MIT Free Software model. See [Copyright (c) 2019 Ricardo Lima Caratti](https://pu2clr.github.io/SI4735/#mit-license). 
  */
 
-#include <SI4735.h>
+#include "SI4735.h"
 
 /**
  * @brief Construct a new SI4735::SI4735 

@@ -144,17 +144,21 @@ void startClock()
     TCCR1A = 0;
     TCCR1B = 0;
     TCNT1  = 0;
-    OCR1A = 1;   // toggle after counting to 8
+    //OCR1A = 1;   // toggle after counting to 4
+    OCR1A = 3;   // toggle after counting to 16
     TCCR1A |= (1 << COM1A0);   // Toggle OC1A on Compare Match.
     TCCR1B |= (1 << WGM12);    // CTC mode
-    TCCR1B |= (1 << CS10);     // clock on, no pre-scaler
+    //TCCR1B |= (1 << CS10);     // clock on, no pre-scaler
+    
+    //Set prescaler to 64 
+    TCCR1B |= (1 << CS10);     // 
+    TCCR1B |= (1 << CS11);     //
 }
 
 /////////////////////////////////////////
 
  void loop ()
  {
-  lastMod=millis();  //used to check the EEPROM writing
   if (showSMeter==true) 
   {
       if (millis()>lastSMeterUpdate+SMETERUPDATERATE)
@@ -166,6 +170,7 @@ void startClock()
   int result = r.process();       //This checks to see if there has been an event on the rotary encoder.
   if (result)
   {
+    lastMod=millis();  //used to check the EEPROM writing
     freqChanged=true; //used to check the EEPROM writing            
 
     
@@ -454,14 +459,17 @@ return;
     Serial.println(si4735Addr, HEX);
 #endif
 
-  si4735.setup(RESET_PIN, AM_FUNCTION);
+  //si4735.setup(RESET_PIN, AM_FUNCTION);
+  si4735.setup(RESET_PIN,-1,AM_FUNCTION,SI473X_ANALOG_AUDIO,XOSCEN_RCLK);
+  si4735.setRefClock(31250);
+  si4735.setRefClockPrescaler(1); //
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
   si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,10000,1,USB); //starts up at 10Mhz.
   sendFrequency(rx,true);   //set to the correct frequency
   displayFrequency(rx);
   si4735.setVolume(60);
-  si4735.setClockFrequency(16000000);
+  //si4735.setClockFrequency(16000000);
   Serial.print("RX Freq = ");
   Serial.println(si4735.getFrequency());
   }
