@@ -1017,6 +1017,8 @@ protected:
     uint8_t lastMode = -1; //!<  Stores the last mode used.
 
     uint8_t currentAvcAmMaxGain = 48; //!<  Stores the current Automatic Volume Control Gain for AM. Default value is 48.
+    uint8_t currentClockType = XOSCEN_CRYSTAL;
+    uint8_t currentInterruptEnable = 0;
 
     si47x_frequency currentFrequency; //!<  data structure to get current frequency
     si47x_set_frequency currentFrequencyParams;
@@ -1062,7 +1064,7 @@ public:
     void setup(uint8_t resetPin, uint8_t defaultFunction);
     void setup(uint8_t resetPin, int interruptPin, uint8_t defaultFunction, uint8_t audioMode = SI473X_ANALOG_AUDIO, uint8_t clockType = XOSCEN_CRYSTAL);
 
-    void setRefClock(uint8_t refclk);
+    void setRefClock(uint16_t refclk);
     void setRefClockPrescaler(uint16_t prescale, uint8_t rclk_sel = 0);
 
     int32_t getProperty(uint16_t propertyValue);
