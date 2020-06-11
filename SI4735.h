@@ -1,5 +1,3 @@
-#define SI4735DOTH
-
 /**
  * @brief SI4735 ARDUINO LIBRARY  
  * 
@@ -11,8 +9,9 @@
  * @details The are more than 20 examples on <https://github.com/pu2clr/SI4735/tree/master/examples>
  *   
  * @see https://pu2clr.github.io/SI4735/
- * @see Si47XX PROGRAMMING GUIDE AN332: https://www.silabs.com/documents/public/application-notes/AN332.pdf
+ * @see Si47XX PROGRAMMING GUIDE AN332 (Rev 1.0): https://www.silabs.com/documents/public/application-notes/AN332.pdf
  * @see AN332 REV 0.8 UNIVERSAL PROGRAMMING GUIDE; AMENDMENT FOR SI4735-D60 SSB AND NBFM PATCHES
+ * 
  *  
  * @author PU2CLR - Ricardo Lima Caratti 
  * @date  2019-2020
@@ -87,7 +86,7 @@
 #define SSB_AGC_OVERRIDE 0x48 // Overrides AGC settings by disabling and forcing it to a fixed value.
 
 // AM/SW/LW Receiver Property Summary
-// See  Si47XX PROGRAMMING GUIDE AN332; page 125
+// See  Si47XX PROGRAMMING GUIDE AN332 (REV 1.0); page 125
 #define DIGITAL_OUTPUT_FORMAT 0x0102                // Configure digital audio outputs.
 #define DIGITAL_OUTPUT_SAMPLE_RATE 0x0104           // Configure digital audio output sample rate
 #define REFCLK_FREQ 0x0201                          //Sets frequency of reference clock in Hz. The range is 31130 to 34406 Hz, or 0 to disable the AFC. Default is 32768 Hz.
@@ -170,8 +169,10 @@
 #define MIN_DELAY_WAIT_SEND_LOOP 300     // In uS (Microsecond) - each loop of waitToSend sould wait this value in microsecond
 #define MAX_SEEK_TIME 8000               // defines the maximum seeking time 8s is default.
 
+#define XOSCEN_CRYSTAL 1
+#define XOSCEN_RCLK    0 
 
-/** @defgroup group01 Defined Data Types 
+/** @defgroup group01 Union, Struct and Defined Data Types 
  * @section group01 Data Types 
  *  
  * @brief SI473X data representation
@@ -191,7 +192,7 @@
  * 
  * @brief Power Up arguments data type 
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 64 and 65
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 64 and 65
  */
 typedef union {
     struct
@@ -215,7 +216,7 @@ typedef union {
  * 
  * @details GPO1, 2, and 3 can be configured for output (Hi-Z or active drive) by setting the GPO1OEN, GPO2OEN, and GPO3OEN bit. 
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; page 82 and 144
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 82 and 144
  */
 typedef union {
     struct
@@ -236,7 +237,7 @@ typedef union {
  * 
  * @details Valid sources are the lower 8 bits of the STATUS byte, including CTS, ERR, RSQINT, and STCINT bits.
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; page 146
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 146
  */
 typedef union {
     struct
@@ -288,7 +289,7 @@ typedef union {
  * 
  * @brief AM Tune frequency data type command (AM_TUNE_FREQ command)
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 135
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 135
  */
 typedef union {
     struct
@@ -313,7 +314,7 @@ typedef union {
  * @details Represents searching for a valid frequency data type AM and FM.
  * @details When AM, the searching data have to be complemented by si47x_seek_am_complement.
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 72 and 137
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 72 and 137
  * @see si47x_seek_am_complement
  */
 typedef union {
@@ -334,7 +335,7 @@ typedef union {
  * 
  * @details Represents AM complement searching information for a valid frequency data type.
  * 
- * @see  @see Si47XX PROGRAMMING GUIDE; AN332; pages 72 and 137
+ * @see  @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 72 and 137
  */
 typedef struct
 {
@@ -413,7 +414,7 @@ typedef union {
  * 
  * @details The part number, chip revision, firmware revision, patch revision and component revision numbers. 
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 66 and 131 
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 66 and 131 
  */
 typedef union {
     struct
@@ -449,7 +450,7 @@ typedef union {
  * To confirm that the patch is compatible with the internal device library revision, the library 
  * revision should be confirmed by issuing the POWER_UP command with Function = 15 (query library ID)
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; page 12 
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 12 
  */
 typedef union {
     struct
@@ -481,7 +482,7 @@ typedef union {
  * 
  * @details Status of FM_TUNE_FREQ or FM_SEEK_START commands or Status of AM_TUNE_FREQ or AM_SEEK_START commands.
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 73 and 139
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 73 and 139
  */
 typedef union {
     struct
@@ -509,7 +510,6 @@ typedef union {
     uint16_t value;
 } si47x_property;
 
-
 /** 
  * @ingroup group01
  * 
@@ -517,7 +517,7 @@ typedef union {
  * 
  * @details Data type for status information about the received signal quality (FM_RSQ_STATUS and AM_RSQ_STATUS)
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 75 and 
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 75 and 
  */
 typedef union {
     struct
@@ -562,7 +562,7 @@ typedef union {
  * 
  * @brief Data type for RDS Status command and response information 
  *
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 77 and 78 
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 77 and 78 
  * @see Also https://en.wikipedia.org/wiki/Radio_Data_System
  */
 typedef union {
@@ -581,7 +581,7 @@ typedef union {
  * 
  * @brief Response data type for current channel and reads an entry from the RDS FIFO.
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 77 and 78
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 77 and 78
  */
 typedef union {
     struct
@@ -635,7 +635,7 @@ typedef union {
  * 
  * @brief FM_RDS_INT_SOURCE property data type
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; page 103
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 103
  * @see also https://en.wikipedia.org/wiki/Radio_Data_System
  */
 typedef union {
@@ -667,7 +667,7 @@ typedef union {
  *  0,0,0,0 = No group stored containing corrected or uncorrected errors.
  *  3,2,3,3 = Group stored with corrected errors on B, regardless of errors on A, C, or D.
  *  
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 58 and 104 
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 58 and 104 
  */
 typedef union {
     struct
@@ -714,7 +714,7 @@ typedef union {
  * 4) Unnamed bit-fields' types do not affect the alignment of a structure or union, although individual 
  *    bit-fields' member offsets obey the alignment constraints.   
  * 
- * @see also Si47XX PROGRAMMING GUIDE; AN332; pages 78 and 79
+ * @see also Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 78 and 79
  * @see also https://en.wikipedia.org/wiki/Radio_Data_System
  */
 typedef union {
@@ -802,14 +802,13 @@ typedef union {
     uint8_t raw[6];
 } si47x_rds_date_time;
 
-
 /** 
  * @ingroup group01
  * 
  * AGC data types
  * FM / AM and SSB structure to AGC
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; For FM page 80; for AM page 142
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); For FM page 80; for AM page 142
  * @see AN332 REV 0.8 Universal Programming Guide Amendment for SI4735-D60 SSB and NBFM patches; page 18. 
  */
 typedef union {
@@ -839,7 +838,7 @@ typedef union {
  * (minimum attenuation) and 26 (maximum attenuation).
  * If AM, overrides the AGC setting by disabling the AGC and forcing the gain index that ranges between 0
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; For FM page 81; for AM page 143
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); For FM page 81; for AM page 143
  */
 typedef union {
     struct
@@ -866,7 +865,7 @@ typedef union {
  *                 6 = 2.5 kHz Bandwidth, gradual roll off
  *                 7–15 = Reserved (Do not use)
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; pages 125 and 151
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 125 and 151
  */
 typedef union {
     struct
@@ -907,7 +906,7 @@ typedef union {
  * 
  * @details Used to configure: DCLK edge, data format, force mono, and sample precision.
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; page 195. 
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 195. 
  */
 typedef union {
     struct
@@ -946,7 +945,7 @@ typedef union {
  * 
  * @details Used to enable digital audio output and to configure the digital audio output sample rate in samples per second (sps).
  * 
- * @see Si47XX PROGRAMMING GUIDE; AN332; page 196. 
+ * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 196. 
  */
 typedef struct
 {
@@ -977,7 +976,7 @@ static void interrupt_hundler()
  * @brief SI4735 Class 
  * 
  * @details This class implements all functions to help you to control the Si47XX devices. 
- * This library was built based on “Si47XX PROGRAMMING GUIDE; AN332 ”. 
+ * This library was built based on “Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0)”. 
  * It also can be used on all members of the SI473X family respecting, of course, the features available 
  * for each IC version.  These functionalities can be seen in the comparison matrix shown in 
  * table 1 (Product Family Function); pages 2 and 3 of the programming guide.
@@ -1061,7 +1060,10 @@ public:
     void waitToSend(void);
 
     void setup(uint8_t resetPin, uint8_t defaultFunction);
-    void setup(uint8_t resetPin, int interruptPin, uint8_t defaultFunction, uint8_t audioMode = SI473X_ANALOG_AUDIO);
+    void setup(uint8_t resetPin, int interruptPin, uint8_t defaultFunction, uint8_t audioMode = SI473X_ANALOG_AUDIO, uint8_t clockType = XOSCEN_CRYSTAL);
+
+    void setRefClock(uint8_t refclk);
+    void setRefClockPrescaler(uint16_t prescale, uint8_t rclk_sel = 0);
 
     int32_t getProperty(uint16_t propertyValue);
 
@@ -1074,7 +1076,7 @@ public:
      * @details You might need to use the bit operations or some bit field structure to set right the values.
      * @details Used this function instead of the sendProperty.
      * 
-     * @see Si47XX PROGRAMMING GUIDE; AN332; pages 55, 69, 124 and  134.
+     * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 55, 69, 124 and  134.
      * @see getProperty, sendProperty
      * @param propertyNumber
      * @param param  pamameter value 
@@ -1102,12 +1104,12 @@ public:
     /** 
      * STATUS RESPONSE
      * Set of methods to get current status information. Call them after getStatus or getFrequency or seekStation
-     * @see Si47XX PROGRAMMING GUIDE; AN332; pages 63
+     * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 63
      */
 
     /**
      * @brief Get the Signal Quality Interrupt status
-     * @see Si47XX PROGRAMMING GUIDE; AN332; pages 63            
+     * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 63            
      * @return RDSINT status
      */
     inline bool getSignalQualityInterrupt()
@@ -1117,7 +1119,7 @@ public:
 
     /**
      * @brief Get the Radio Data System (RDS) Interrupt status
-     * @see Si47XX PROGRAMMING GUIDE; AN332; page 63
+     * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 63
      * @return RDSINT status  
      */
     inline bool getRadioDataSystemInterrupt()
@@ -1262,7 +1264,7 @@ public:
      * @details This function can be useful to disable Soft Mute. The value 0 disable soft mute.
      * @details Specified in units of dB. Default maximum attenuation is 8 dB. It works for AM and SSB.
      * 
-     * @see Si47XX PROGRAMMING GUIDE; AN332; page 158. 
+     * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 158. 
      * 
      * @param smattn Maximum attenuation to apply when in soft mute
      */
@@ -1447,7 +1449,7 @@ public:
     /*
      * FIRMWARE RESPONSE
      * 
-     * See Si47XX PROGRAMMING GUIDE; AN332; page 66
+     * See Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); page 66
      */
 
     inline uint8_t getFirmwarePN() { return firmwareInfo.resp.PN; };             //!<   RESP1 - Part Number (HEX)
@@ -1570,7 +1572,7 @@ public:
     * @brief Search for the next station
     * @details Seek a station up. Stop when a station is found or the frequency has reached the upper limit  
     * @see seekStation, seekStationProgress, setSeekAmLimits setSeekFmLimits 
-    * @see Si47XX PROGRAMMING GUIDE; AN332; pages 124, 137, 139, 278
+    * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 124, 137, 139, 278
     */
     inline void seekStationUp()
     {
@@ -1583,13 +1585,16 @@ public:
     * @brief Search the previous station
     * @details Seek a station Down. Stop when a station is found or the frequency has reached the lower limit  
     * @see seekStation, seekStationProgress, setSeekAmLimits, setSeekFmLimits
-    * @see Si47XX PROGRAMMING GUIDE; AN332; pages 124, 137, 139, 278 
+    * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 124, 137, 139, 278 
     */
     inline void seekStationDown()
     {
         seekStationProgress(NULL, SEEK_DOWN);
     };
-    
+
+    void seekNextStation();
+    void seekPreviousStation();
+
     void seekStationProgress(void (*showFunc)(uint16_t f), uint8_t up_down);
 
     // AM Seek property configurations
@@ -1819,7 +1824,7 @@ public:
      * 
      * @brief Gets the current status  of the Si47XX (AM, FM or SSB)
      * 
-     * @see Si47XX PROGRAMMING GUIDE; AN332; pages 73 (FM) and 139 (AM)
+     * @see Si47XX PROGRAMMING GUIDE; AN332 (REV 1.0); pages 73 (FM) and 139 (AM)
      */
     inline void getStatus()
     {

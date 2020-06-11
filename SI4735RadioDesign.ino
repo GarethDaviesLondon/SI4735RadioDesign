@@ -122,7 +122,7 @@ void setup()
   pinMode(SW2, INPUT_PULLUP);
   pinMode(SW3, INPUT_PULLUP);
   pinMode(SW4, INPUT_PULLUP);
-  
+  startClock();
   Wire.setClock(200000);   // I2C Speed available
   displaybanner();        //Show a banner message to the world
   readDefaults();         //check EEPROM for startup conditions
@@ -138,6 +138,17 @@ void setup()
 //while(1);
 }
 
+void startClock()
+{
+     pinMode (9, OUTPUT); 
+    TCCR1A = 0;
+    TCCR1B = 0;
+    TCNT1  = 0;
+    OCR1A = 1;   // toggle after counting to 8
+    TCCR1A |= (1 << COM1A0);   // Toggle OC1A on Compare Match.
+    TCCR1B |= (1 << WGM12);    // CTC mode
+    TCCR1B |= (1 << CS10);     // clock on, no pre-scaler
+}
 
 /////////////////////////////////////////
 
@@ -450,6 +461,7 @@ return;
   sendFrequency(rx,true);   //set to the correct frequency
   displayFrequency(rx);
   si4735.setVolume(60);
+  si4735.setClockFrequency(16000000);
   Serial.print("RX Freq = ");
   Serial.println(si4735.getFrequency());
   }

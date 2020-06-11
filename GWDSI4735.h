@@ -20,7 +20,7 @@ class GWDSI4735 : public SI4735 {
 #ifdef UPLOADPATCH
     int GWDSI4735::uploadPatchToEeprom(void);
 #endif
-
+    int GWDSI4735::setClockFrequency(long int);
     void GWDSI4735::eepromReadBlock(uint8_t i2c_address, uint16_t offset, uint8_t  * pData, uint8_t blockSize);
     void GWDSI4735::downloadPatchFromEeprom(void);
   
@@ -37,6 +37,8 @@ class GWDSI4735 : public SI4735 {
 
     bool GWDSI4735::checkHeaderWroteOK(const uint8_t  * pData, uint16_t offset, uint8_t datalength);
     uint16_t eepromReadInt(uint8_t i2c_address, uint16_t offset);
+    void GWDSI4735::ssbPowerUp();
+
 
 
   

@@ -438,3 +438,49 @@ void GWDSI4735::downloadPatchFromEeprom(void)
         Serial.print("\nFinished\n");
     #endif
 }
+
+///////////////////////////////
+
+
+void GWDSI4735::ssbPowerUp()
+{
+    waitToSend();
+    Wire.beginTransmission(deviceAddress);
+    Wire.write(POWER_UP);
+//    Wire.write(0b00010001); // Set to AM/SSB, disable interrupt; disable GPO2OEN; boot normaly; enable External Crystal Oscillator  .
+    Wire.write(0b00010000); // Set to AM/SSB, disable interrupt; disable GPO2OEN; boot normaly; enable External Crystal Oscillator  .
+    Wire.write(0b00000101); // Set to Analog Line Input.
+    Wire.endTransmission();
+    delayMicroseconds(2500);
+
+    powerUp.arg.CTSIEN = 0;          // 1 -> Interrupt anabled;
+    powerUp.arg.GPO2OEN = 0;         // 1 -> GPO2 Output Enable;
+    powerUp.arg.PATCH = 0;           // 0 -> Boot normally;
+    //powerUp.arg.XOSCEN = 1;          // 1 -> Use external crystal oscillator;
+    powerUp.arg.XOSCEN = 0;          // 0 -> Use external clock reference;
+    powerUp.arg.FUNC = 1;            // 0 = FM Receive; 1 = AM/SSB (LW/MW/SW) Receiver.
+    powerUp.arg.OPMODE = 0b00000101; // 0x5 = 00000101 = Analog audio outputs (LOUT/ROUT).
+}
+
+
+
+/////////
+
+int GWDSI4735::setClockFrequency(long int Hz)
+{
+  uint16_t value=0;
+  //There is a control bit D12 to change the clock source pin. 0 (default = RCLK).
+  //4Mhz = 32Khz * 125; 
+  value=125;
+  setProperty(REFCLK_PRESCALE,value);
+  value=32000;  
+  setProperty(REFCLK_FREQ,value);
+ 
+}
+
+/////
+
+//#define REFCLK_FREQ 0x0201                          //Sets frequency of reference clock in Hz. The range is 31130 to 34406 Hz, or 0 to disable the AFC. Default is 32768 Hz.
+//#define REFCLK_PRESCALE 0x0202                      // Sets the prescaler value for RCLK input.
+//#define AM_MODE_AFC_SW_PULL_IN_RANGE 0x3104         // Sets the SW AFC pull-in range.
+//#define AM_MODE_AFC_SW_LOCK_IN_RANGE 0x3105         // Sets the SW AFC lock-in.
