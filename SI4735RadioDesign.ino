@@ -461,7 +461,7 @@ return;
 
   //si4735.setup(RESET_PIN, AM_FUNCTION);
   si4735.setup(RESET_PIN,-1,AM_FUNCTION,SI473X_ANALOG_AUDIO,XOSCEN_RCLK);
-  si4735.setRefClock(31250);
+  si4735.setRefClock(32768);
   si4735.setRefClockPrescaler(1); //
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
