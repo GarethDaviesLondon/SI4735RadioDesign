@@ -84,7 +84,7 @@ int underBarY;  //This is the global Y value that set the location of the underb
 #define DEFAULTSTEP 1000    //Set default tuning step size to 1Khz. Only used when EEPROM not initialised
 #define UPDATEDELAY 5000    //When tuning you don't want to be constantly writing to the EEPROM. So wait
                             //For this period of stability before storing frequency and step size
-#define BFORANGE 16000      //Hz before resetting maintuning on the SI4735 BFO
+#define BFORANGE 999      //Hz before resetting maintuning on the SI4735 BFO
                                                   
 //////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -122,7 +122,7 @@ void setup()
   pinMode(SW2, INPUT_PULLUP);
   pinMode(SW3, INPUT_PULLUP);
   pinMode(SW4, INPUT_PULLUP);
-  startClock();
+  //startClock();
   Wire.setClock(200000);   // I2C Speed available
   displaybanner();        //Show a banner message to the world
   readDefaults();         //check EEPROM for startup conditions
@@ -459,17 +459,17 @@ return;
     Serial.println(si4735Addr, HEX);
 #endif
 
-  //si4735.setup(RESET_PIN, AM_FUNCTION);
-  si4735.setup(RESET_PIN,-1,AM_FUNCTION,SI473X_ANALOG_AUDIO,XOSCEN_RCLK);
-  si4735.setRefClock(32768);
-  si4735.setRefClockPrescaler(1); //
+  //si4735.setup(RESET_PIN, AM_FUNCTION); //Use Xtal
+  si4735.setup(RESET_PIN,-1,AM_FUNCTION,SI473X_ANALOG_AUDIO,XOSCEN_RCLK); //Use External Clock
+  si4735.setRefClockPrescaler(1); //Divide the external clock to get in range of 31130 to 32768 Hz
+  si4735.setRefClock(32768); // Tell the system the clock frequency
+
   loadSSB();
   si4735.setTuneFrequencyAntennaCapacitor(1); // Set antenna tuning capacitor for SW.
   si4735.setSSB(MINFREQ/1000,MAXFREQ/1000,10000,1,USB); //starts up at 10Mhz.
   sendFrequency(rx,true);   //set to the correct frequency
   displayFrequency(rx);
   si4735.setVolume(60);
-  //si4735.setClockFrequency(16000000);
   Serial.print("RX Freq = ");
   Serial.println(si4735.getFrequency());
   }
